@@ -65,8 +65,8 @@ class ArgillaEstimator:
             config = {'text': row['text'], 'metadata': {"batch_id": row['batch_id'], 'id': row['id']}, "id": row['id']}
             # if not (row[['prediction']].isnull().any()):
             #     config['prediction'] = row['prediction']  # TODO: fix it incorrect type!!!
-            if not(row[['annotation']].isnull().any()):  # TODO: fix it incorrect type!!!
-                config['annotation'] = row['annotation']
+            # if not(row[['annotation']].isnull().any()):  # TODO: fix it incorrect type!!!
+            #     config['annotation'] = row['annotation']
             record_list.append(rg.TextClassificationRecord(**config))
         rg.log(records=record_list, name=dataset_name)
 

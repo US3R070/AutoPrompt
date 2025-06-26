@@ -79,9 +79,9 @@ class OptimizationPipeline:
         Calculate the usage of the optimization process (either $ in case of openAI or #tokens the other cases)
         """
         total_usage = 0
-        total_usage += self.meta_chain.calc_usage()
-        total_usage += self.annotator.calc_usage()
-        total_usage += self.predictor.calc_usage()
+        # total_usage += self.meta_chain.calc_usage()
+        # total_usage += self.annotator.calc_usage()
+        # total_usage += self.predictor.calc_usage()
         return total_usage
 
     def extract_best_prompt(self):
@@ -240,8 +240,10 @@ class OptimizationPipeline:
                 step=self.batch_id)
 
         logging.info('Running annotator')
+        self.annotator.cur_instruct = self.cur_prompt
         records = self.annotator.apply(self.dataset, self.batch_id)
         self.dataset.update(records)
+
 
         self.predictor.cur_instruct = self.cur_prompt
         logging.info('Running Predictor')
