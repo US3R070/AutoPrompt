@@ -112,8 +112,11 @@ class Eval:
         prompt_input = {'task_description': task_description, 'accuracy': self.mean_score, 'prompt': prompt,
                                          'failure_cases': large_error_to_str}
         if self.score_function_name == 'accuracy':
+            # conf_matrix = confusion_matrix(self.dataset['annotation'],
+            #                                self.dataset['prediction'], labels=self.label_schema)
+            print(self.dataset['annotation'], self.dataset['prediction'])
             conf_matrix = confusion_matrix(self.dataset['annotation'],
-                                           self.dataset['prediction'], labels=self.label_schema)
+                                           self.dataset['prediction'])
             conf_text = f"Confusion matrix columns:{self.label_schema} the matrix data:"
             for i, row in enumerate(conf_matrix):
                 conf_text += f"\n{self.label_schema[i]}: {row}"

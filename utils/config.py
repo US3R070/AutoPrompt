@@ -65,6 +65,17 @@ def get_llm(config: dict):
                               api_key=LLM_ENV['anthropic']['ANTHROPIC_API_KEY'],
                               model_kwargs=model_kwargs)
 
+    elif config['type'].lower() == 'ollama':
+        from langchain_community.llms import Ollama
+        from langchain_community.chat_models import ChatOllama
+        base_url = config.get('base_url', LLM_ENV['ollama']['OLLAMA_BASE_URL'])
+        # 使用ChatOllama以获得更好的对话格式支持
+        return ChatOllama(
+            model=config['name'],
+            base_url=base_url,
+            temperature=temperature,
+            **model_kwargs
+        )
 
     elif config['type'].lower() == 'huggingfacepipeline':
         device = config.get('gpu_device', -1)
