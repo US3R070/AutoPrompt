@@ -16,6 +16,9 @@ from utils.reasoner import Reasoner
 from dataset.base_dataset import DatasetBase
 from utils.llm_chain import get_llm
 import wandb
+import dotenv
+
+dotenv.load_dotenv()
 
 class ResOptimizationPipeline(OptimizationPipeline):
     def __init__(self, *args, reasoner=None, **kwargs):

@@ -13,8 +13,9 @@ annotator:
     config:
         llm:
             type: 'OpenAI'
-            name: 'o3-mini'
+            name: 'o4-mini'
             # model_kwargs: {"seed": 220}
+            temperature: 1
         num_workers: 3
         prompt: 'prompts/predictor_completion/annotation.prompt'
         mini_batch_size: 1
@@ -25,8 +26,9 @@ reasoner:
     config:
         llm:
             type: 'OpenAI'
-            name: 'o3-mini'
+            name: 'o4-mini'
             # model_kwargs: {"seed": 220}
+            temperature: 1
         num_workers: 3
         
 
@@ -47,9 +49,10 @@ predictor:
     config:
         llm:
             type: 'Ollama'
-            name: 'qwen3:8b'
+            name: 'gemma3:27b'
             base_url: 'https://ollama.havenook.com'
             # model_kwargs: {"temperature": 0}
+            temperature: 0.8
         num_workers: 2
         prompt: 'prompts/predictor_completion/prediction.prompt'
         mini_batch_size: 1
@@ -75,7 +78,7 @@ eval:
 llm:
     name: 'gpt-4'
     type: 'OpenAI'
-    # temperature: 0
+    temperature: 1
 
 stop_criteria:
     max_usage: 5
