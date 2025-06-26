@@ -9,7 +9,7 @@ def prediction_parser(response: dict) -> dict:
     :param response: The response from the LLM chain
     :return: The parsed response
     """
-    print(response)
+    # print(response)
     pattern = re.compile(r'Sample (\d+): (\w+)')
     matches = pattern.findall(response['text'])
     predictions = [{'id': int(match[0]), 'prediction': match[1]} for match in matches]
@@ -20,7 +20,7 @@ def annotation_parser(response: dict) -> dict:
     一個更健壯的、可以容忍 LLM 輸出格式錯誤的解析器。
     """
     text = response.get('text', '')
-    print(response)
+    # print(response)
     # 更寬鬆的 regex：允許空格，不區分大小寫，處理冒號的全形半形
     pattern = re.compile(r'Sample\s*(\d+)\s*[:：]\s*(Yes|No)', re.IGNORECASE)
     matches = pattern.findall(text)

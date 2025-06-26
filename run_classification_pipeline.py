@@ -13,6 +13,7 @@ import pandas as pd
 import csv
 import json
 from utils.reasoner import Reasoner
+from utils.few_shot import FewShotSelector
 from dataset.base_dataset import DatasetBase
 from utils.llm_chain import get_llm
 import wandb
@@ -21,9 +22,10 @@ import dotenv
 dotenv.load_dotenv()
 
 class ResOptimizationPipeline(OptimizationPipeline):
-    def __init__(self, *args, reasoner=None, **kwargs):
+    def __init__(self, *args, reasoner=None, few_shot_selector=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.reasoner = reasoner
+        self.few_shot_selector = few_shot_selector
 
     def step(self, current_iter, total_iter):
         self.log_and_print(f'Starting step {self.batch_id}')
@@ -46,6 +48,26 @@ class ResOptimizationPipeline(OptimizationPipeline):
         else:
             logging.info('Skipping annotator for initial dataset (batch_id=0).')
 
+        # Few-shot 評估（如果啟用）
+        best_few_shot_result = None
+        if self.few_shot_selector and self.few_shot_selector.enable_few_shot:
+            logging.info('開始 Few-shot 評估...')
+            
+            # 生成 few-shot 組合
+            combinations = self.few_shot_selector.sample_few_shot_combinations(max_combinations=5)
+            
+            # 評估不同組合
+            best_few_shot_result = self.few_shot_selector.evaluate_few_shot_combinations(
+                self.cur_prompt, combinations, self.predictor, self.eval, self.dataset
+            )
+            
+            # 儲存最佳組合
+            prompt_id = f"step_{self.batch_id}_prompt"
+            self.few_shot_selector.save_best_few_shot(prompt_id, best_few_shot_result)
+            
+            logging.info(f'Few-shot 最佳分數: {best_few_shot_result["score"]:.4f}')
+
+        # 原始 predictor 評估（不使用 few-shot）
         self.predictor.cur_instruct = self.cur_prompt
         logging.info('Running Predictor')
         records = self.predictor.apply(self.dataset, self.batch_id, leq=True)
@@ -54,22 +76,67 @@ class ResOptimizationPipeline(OptimizationPipeline):
         self.eval.dataset = self.dataset.get_leq(self.batch_id)
         self.eval.eval_score()
         logging.info('Calculating Score')
+        
+        # 決定用哪組結果來統計錯誤（使用分數較差的那組）
+        use_few_shot_for_errors = False
+        if best_few_shot_result and best_few_shot_result['score'] < self.eval.mean_score:
+            use_few_shot_for_errors = True
+            logging.info(f'使用 few-shot 結果進行錯誤統計 (分數較差: {best_few_shot_result["score"]:.4f} vs {self.eval.mean_score:.4f})')
+            
+            # 備份當前的 records
+            original_records = self.dataset.records.copy()
+            
+            # 用 few-shot 結果重新評估以獲取錯誤
+            self.predictor.cur_instruct = best_few_shot_result['prompt']
+            few_shot_records = self.predictor.apply(self.dataset, self.batch_id, leq=True)
+            self.dataset.update(few_shot_records)
+            self.eval.dataset = self.dataset.get_leq(self.batch_id)
+            self.eval.eval_score()
+        
         large_errors = self.eval.extract_errors()
         self.eval.add_history(self.cur_prompt, self.task_description)
+        
+        # 恢復原始 records（如果之前用了 few-shot）
+        if use_few_shot_for_errors:
+            self.dataset.records = original_records
+            self.eval.dataset = self.dataset.get_leq(self.batch_id)
+            self.eval.eval_score()
+            
         if self.config.use_wandb:
             large_errors = large_errors.sample(n=min(6, len(large_errors)))
             correct_samples = self.eval.extract_correct()
             correct_samples = correct_samples.sample(n=min(6, len(correct_samples)))
             vis_data = pd.concat([large_errors, correct_samples])
-            self.wandb_run.log({"score": self.eval.history[-1]['score'],
-                                "prediction_result": wandb.Table(dataframe=vis_data),
-                                'Total usage': self.calc_usage()}, step=self.batch_id)
+            wandb_log_data = {"score": self.eval.history[-1]['score'],
+                            "prediction_result": wandb.Table(dataframe=vis_data),
+                            'Total usage': self.calc_usage()}
+            
+            # 如果有 few-shot 結果，也記錄到 wandb
+            if best_few_shot_result:
+                wandb_log_data["few_shot_score"] = best_few_shot_result['score']
+                
+            self.wandb_run.log(wandb_log_data, step=self.batch_id)
+            
         if self.stop_criteria():
             self.log_and_print('Stop criteria reached')
             return True
         if current_iter != total_iter-1:
             self.run_step_prompt()
         self.save_state()
+
+        # 新增：每一輪都存下當前 prompt 和分數
+        def save_prompt_history(output_dir, batch_id, prompt, score):
+            output_dir = Path(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            file_path = output_dir / "best_prompts_history.jsonl"
+            with open(file_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "batch_id": batch_id,
+                    "prompt": prompt,
+                    "score": score
+                }, ensure_ascii=False) + "\n")
+        save_prompt_history(self.output_path, self.batch_id, self.cur_prompt, self.eval.mean_score)
+
         return False
 
     def run_step_prompt(self):
@@ -162,6 +229,10 @@ def main():
                        help='輸出目錄')
     parser.add_argument('--load_path', type=str, default='',
                        help='加載檢查點路徑')
+    parser.add_argument('--enable_few_shot', action='store_true', default=True,
+                       help='是否啟用 few-shot 評估')
+    parser.add_argument('--num_shots', type=int, default=2,
+                       help='Few-shot 的範例數量')
     args = parser.parse_args()
 
     # 加載配置
@@ -172,6 +243,8 @@ def main():
     print(f"任務描述: {args.task_description}")
     print(f"優化步驟數: {args.num_steps}")
     print(f"輸出目錄: {args.output_dump}")
+    if args.enable_few_shot:
+        print(f"Few-shot 啟用: {args.num_shots} shots")
 
     # 在創建優化管道之前，確保數據集包含必要欄位
     dataset_path = Path(config.dataset.records_path)
@@ -215,13 +288,30 @@ def main():
     )
     reasoner = Reasoner(llm, analysis_prompt_template)
 
+    # 初始化 Few-shot Selector
+    few_shot_selector = None
+    if args.enable_few_shot:
+        # 準備 few-shot 範例池（使用部分已標註資料）
+        examples_pool = df[df['annotation'].notna() & (df['annotation'] != '')].copy()
+        if len(examples_pool) >= args.num_shots:
+            few_shot_selector = FewShotSelector(
+                enable_few_shot=True,
+                num_shots=args.num_shots,
+                examples_pool=examples_pool,
+                output_dir=args.output_dump
+            )
+            print(f"Few-shot 範例池包含 {len(examples_pool)} 個樣本")
+        else:
+            print(f"警告: 範例池樣本數 ({len(examples_pool)}) 少於所需的 shot 數 ({args.num_shots})，停用 few-shot")
+
     # 創建新的 ResOptimizationPipeline
     pipeline = ResOptimizationPipeline(
         config=config,
         task_description=args.task_description,
         initial_prompt=args.prompt,
         output_path=args.output_dump,
-        reasoner=reasoner
+        reasoner=reasoner,
+        few_shot_selector=few_shot_selector
     )
     
     # pipeline = OptimizationPipeline(
@@ -258,8 +348,6 @@ def main():
     print("-" * 40)
     print(best_result['prompt'])
     print("-" * 40)
-    print(f"總使用成本: ${pipeline.calc_usage():.4f}")
-    print("="*60)
 
 if __name__ == "__main__":
     main() 
