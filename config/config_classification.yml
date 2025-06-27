@@ -4,7 +4,7 @@ dataset:
     name: 'classification_dataset'
     records_path: 'dataset/classification_dataset.csv'
     initial_dataset: 'dataset/classification_dataset.csv'
-    label_schema: ['Yes', 'No']
+    label_schema: ['True', 'False']
     max_samples: 30
     semantic_sampling: False
 
@@ -21,16 +21,27 @@ annotator:
         mini_batch_size: 1
         mode: 'annotation'
 
+# reasoner:
+#     method: 'llm'
+#     config:
+#         llm:
+#             type: 'OpenAI'
+#             name: 'o4-mini'
+#             # model_kwargs: {"seed": 220}
+#             temperature: 1
+#         num_workers: 3
+
+
 reasoner:
     method: 'llm'
     config:
         llm:
-            type: 'OpenAI'
-            name: 'o4-mini'
+            type: 'Ollama'
+            name: 'qwen3:8b'
+            base_url: 'https://ollama.havenook.com'
             # model_kwargs: {"seed": 220}
             temperature: 1
         num_workers: 3
-        
 
 # predictor:
 #     method: 'llm'
@@ -49,10 +60,10 @@ predictor:
     config:
         llm:
             type: 'Ollama'
-            name: 'gemma3:27b'
+            name: 'qwen3:8b'
             base_url: 'https://ollama.havenook.com'
             # model_kwargs: {"temperature": 0}
-            temperature: 0.8
+            temperature: 0
         num_workers: 2
         prompt: 'prompts/predictor_completion/prediction.prompt'
         mini_batch_size: 1
@@ -76,7 +87,7 @@ eval:
     error_threshold: 0.5
 
 llm:
-    name: 'gpt-4'
+    name: 'gpt-4.1'
     type: 'OpenAI'
     temperature: 1
 

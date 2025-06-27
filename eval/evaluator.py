@@ -114,7 +114,11 @@ class Eval:
         if self.score_function_name == 'accuracy':
             # conf_matrix = confusion_matrix(self.dataset['annotation'],
             #                                self.dataset['prediction'], labels=self.label_schema)
-            print(self.dataset['annotation'], self.dataset['prediction'])
+            
+            # print prompt_input
+            print(prompt+"\n")
+            
+            print(self.dataset['annotation'],"\r\n", self.dataset['prediction'])
             conf_matrix = confusion_matrix(self.dataset['annotation'],
                                            self.dataset['prediction'])
             conf_text = f"Confusion matrix columns:{self.label_schema} the matrix data:"
