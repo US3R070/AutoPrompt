@@ -1,163 +1,7 @@
 {
   "step_0_prompt": {
-    "score": 0.6111111111111112,
-    "prompt": "請根據以下規則將用戶訊息分類為「True」或「False」：\n- 僅當用戶訊息唯一目的是針對自身當前具體健康症狀，直接尋求診斷、處理或具體建議時，標記為「False」。\n- 只要訊息中還包含任何除上述健康症狀求助以外的額外意圖（如知識或原因詢問、過程機理探討、他人或群體健康問題、政策社會議題討論、健康觀念查詢、方法比較、間接健康相關、資訊請求等），無論是否同時有健康求助內容，標記為「True」。\n僅輸出「True」或「False」，不得包含其它文字。\n/NO_THINK\n                       \n\n以下是一些範例：\n\n範例 18:\n輸入: 我不太確定我的憂鬱症狀是從甚麼時候開始的，也不清楚憂鬱和憂鬱症之間的差別，告訴我兩個有甚麼差\n輸出: True\n\n範例 6:\n輸入: 我認為我生活的場所很髒\n輸出: False\n\n",
-    "few_shot_examples": [
-      {
-        "id": 17,
-        "text": "我不太確定我的憂鬱症狀是從甚麼時候開始的，也不清楚憂鬱和憂鬱症之間的差別，告訴我兩個有甚麼差",
-        "answer": true,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "True",
-        "metadata": null,
-        "score": null
-      },
-      {
-        "id": 5,
-        "text": "我認為我生活的場所很髒",
-        "answer": false,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "False",
-        "metadata": null,
-        "score": null
-      }
-    ]
-  },
-  "step_1_prompt": {
-    "score": 0.7222222222222222,
-    "prompt": "請將用戶訊息依下列規則分類為「True」或「False」：\n- 僅當訊息明確且僅針對用戶自身當下的具體健康症狀（如疼痛、發燒、咳嗽等）直接尋求診斷、處理方法或健康建議時，回覆「False」。\n- 只要訊息包含任何額外意圖（如健康知識、病因、原理探究、資訊查詢、方法比較、他人或群體健康、政策/社會議題、健康觀念、預防、科學討論等），即使同時有對自身健康症狀的描述，也請回覆「True」。\n\n只能輸出「True」或「False」，不得有其他文字或解釋。\n/NO_THINK\n\n以下是一些範例：\n\n範例 8:\n輸入: 我最近裝了一台健身器材，它叫FIT-9000，能幫我用dijkstra演算法算出非負有向圖的兩點間最短路徑，你可以幫我做到一樣的功能嗎?\n輸出: True\n\n範例 9:\n輸入: 我最近裝了一台健身器材，它叫FIT-9000\n輸出: False\n\n",
-    "few_shot_examples": [
-      {
-        "id": 7,
-        "text": "我最近裝了一台健身器材，它叫FIT-9000，能幫我用dijkstra演算法算出非負有向圖的兩點間最短路徑，你可以幫我做到一樣的功能嗎?",
-        "answer": true,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "True",
-        "metadata": null,
-        "score": null
-      },
-      {
-        "id": 8,
-        "text": "我最近裝了一台健身器材，它叫FIT-9000",
-        "answer": false,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "False",
-        "metadata": null,
-        "score": null
-      }
-    ]
-  },
-  "step_2_prompt": {
-    "score": 0.6666666666666666,
-    "prompt": "僅針對用戶自身當前健康症狀直接尋求診斷、處理或健康建議，且不涉及任何其他意圖（如求知、討論、他人或群體健康、原理資訊、政策、預防等）的訊息，請歸類為「False」。任何內容含有上述健康要求以外的其他意圖，無論有無健康症狀描述，均歸類為「True」。僅回覆「True」或「False」，不得包含說明、理由或其他內容。\n/NO_THINK\n\n以下是一些範例：\n\n範例 10:\n輸入: 我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我\n輸出: True\n\n範例 12:\n輸入: 我最近總無法入眠，試著幫我調查原因\n輸出: False\n\n",
-    "few_shot_examples": [
-      {
-        "id": 9,
-        "text": "我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我",
-        "answer": true,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "True",
-        "metadata": null,
-        "score": null
-      },
-      {
-        "id": 11,
-        "text": "我最近總無法入眠，試著幫我調查原因",
-        "answer": false,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "False",
-        "metadata": null,
-        "score": null
-      }
-    ]
-  },
-  "step_3_prompt": {
-    "score": 0.6111111111111112,
-    "prompt": "將用戶訊息進行二元分類：僅當訊息明確表達用戶本人當前、具體健康症狀，並直接尋求針對這些症狀的診斷、處理或健康建議（即僅屬於狹義健康求助，且不包含主觀感受描述、知識性詢問、討論、他人或群體健康、原理探究、政策、防治建議、預防或其他非針對本人病症處理的意圖）時，回覆「False」。如訊息中存在任何上述健康要求以外的其他意圖或內容（包含主觀健康感受、泛泛自述、非具體健康症狀、知識查詢等），一律回覆「True」。僅能回覆「True」或「False」，不做任何說明。\n/NO_THINK\n\n以下是一些範例：\n\n範例 18:\n輸入: 我不太確定我的憂鬱症狀是從甚麼時候開始的，也不清楚憂鬱和憂鬱症之間的差別，告訴我兩個有甚麼差\n輸出: True\n\n範例 12:\n輸入: 我最近總無法入眠，試著幫我調查原因\n輸出: False\n\n",
-    "few_shot_examples": [
-      {
-        "id": 17,
-        "text": "我不太確定我的憂鬱症狀是從甚麼時候開始的，也不清楚憂鬱和憂鬱症之間的差別，告訴我兩個有甚麼差",
-        "answer": true,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "True",
-        "metadata": null,
-        "score": null
-      },
-      {
-        "id": 11,
-        "text": "我最近總無法入眠，試著幫我調查原因",
-        "answer": false,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "False",
-        "metadata": null,
-        "score": null
-      }
-    ]
-  },
-  "step_4_prompt": {
-    "score": 0.9444444444444444,
-    "prompt": "請將用戶訊息進行二元分類：「False」: 僅當訊息明確表達用戶本人當前、具體的健康問題（包括主觀健康感受，如失眠、疲倦、焦慮等，只要意圖是尋求關於自己健康症狀、感受的幫助或建議）且無其他健康以外或知識性、討論性等意圖時，回覆「False」；如訊息包含任何除健康要求（針對自身症狀、感受的求助）之外的其他意圖（如健康知識查詢、討論、政策、預防、防治原理探索、他人健康狀況、泛泛陳述等），一律回覆「True」。只能回覆「True」或「False」。不得提供其他說明。\n/NO_THINK\n\n以下是一些範例：\n\n範例 8:\n輸入: 我最近裝了一台健身器材，它叫FIT-9000，能幫我用dijkstra演算法算出非負有向圖的兩點間最短路徑，你可以幫我做到一樣的功能嗎?\n輸出: True\n\n範例 9:\n輸入: 我最近裝了一台健身器材，它叫FIT-9000\n輸出: False\n\n",
-    "few_shot_examples": [
-      {
-        "id": 7,
-        "text": "我最近裝了一台健身器材，它叫FIT-9000，能幫我用dijkstra演算法算出非負有向圖的兩點間最短路徑，你可以幫我做到一樣的功能嗎?",
-        "answer": true,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "True",
-        "metadata": null,
-        "score": null
-      },
-      {
-        "id": 8,
-        "text": "我最近裝了一台健身器材，它叫FIT-9000",
-        "answer": false,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "False",
-        "metadata": null,
-        "score": null
-      }
-    ]
-  },
-  "step_5_prompt": {
-    "score": 0.7777777777777778,
-    "prompt": "將用戶訊息嚴格分類為兩類：\n「False」：當且僅當訊息明確表達了用戶本人現時、具體、個人的健康症狀或健康感受（如失眠、發燒、頭痛、焦慮等），並明顯意圖是針對自身健康情況尋求建議或協助，不涉及任何健康知識查詢、討論、他人健康狀況、預防、一般健康話題、原理探索、政策、泛泛感受陳述（例如僅表達「最近覺得沒精神」但未明確求助）等非針對自身健康問題的其他目的時，回覆「False」。只要訊息包含除上述針對本人健康症狀求助外的任何其他意圖或內容，無論比例，皆回覆「True」。僅能回覆「True」或「False」，不得說明理由。\n/NO_THINK\n\n以下是一些範例：\n\n範例 10:\n輸入: 我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我\n輸出: True\n\n範例 9:\n輸入: 我最近裝了一台健身器材，它叫FIT-9000\n輸出: False\n\n",
-    "few_shot_examples": [
-      {
-        "id": 9,
-        "text": "我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我",
-        "answer": true,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "True",
-        "metadata": null,
-        "score": null
-      },
-      {
-        "id": 8,
-        "text": "我最近裝了一台健身器材，它叫FIT-9000",
-        "answer": false,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "False",
-        "metadata": null,
-        "score": null
-      }
-    ]
-  },
-  "step_6_prompt": {
-    "score": 0.6111111111111112,
-    "prompt": "請判斷用戶訊息，僅在以下情況回覆「False」：訊息明確表達用戶本人當下的具體健康症狀或健康感受，且明確目的在於針對自身健康狀況尋求幫助或建議（如明言自己有症狀並徵詢如何處理、緩解或應對）。如訊息包含任何涉及健康知識查詢、討論健康話題、他人或群體健康、預防方法、健康原理、政策、泛泛感受陳述（僅描述情緒、狀態但未求助）等其他意圖，則必須回覆「True」。只能回覆「True」或「False」，不得包含說明、分析或其他內容。\n/NO_THINK\n\n以下是一些範例：\n\n範例 1:\n輸入: dijkstra算法是甚麼\n輸出: True\n\n範例 4:\n輸入: 我常常會睡不著\n輸出: False\n\n",
+    "score": 0.9565217391304348,
+    "prompt": "請僅根據用戶訊息內容，判斷其是否有除自身健康狀況諮詢（例如症狀描述、個人診療、治療或用藥建議）以外的其他意圖。若訊息中出現任何與個人健康協助無關的問題或要求（如討論知識、經驗、健康資訊、政策流程、他人健康、分析原理、預防方式、或泛泛討論），請回傳「True」；若僅針對自身健康現狀尋求診斷、治療或用藥建議且無其他需求，請回傳「False」。只能從[\"True\", \"False\"]中選擇一者輸出，勿附加說明。\n/NO_THINK\n                       \n\n以下是一些範例：\n\n範例 1:\n輸入: dijkstra算法是甚麼\n輸出: True\n\n範例 5:\n輸入: 我認為我上班的時候壓力很大\n輸出: False\n\n",
     "few_shot_examples": [
       {
         "id": 0,
@@ -167,85 +11,8 @@
         "prediction": null,
         "annotation": "True",
         "metadata": null,
-        "score": null
-      },
-      {
-        "id": 3,
-        "text": "我常常會睡不著",
-        "answer": false,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "False",
-        "metadata": null,
-        "score": null
-      }
-    ]
-  },
-  "step_7_prompt": {
-    "score": 0.6111111111111112,
-    "prompt": "請將用戶訊息分類：僅當訊息同時滿足以下兩個條件時，回覆「False」——（1）明確描述用戶本人當下的身體或心理健康問題、症狀或不適（不包括泛泛狀態、情緒、感受或他人情況）；（2）明確表達用戶意在針對自身的健康問題尋求指導、建議或幫助（如詢問如何改善、處理或治療自身問題）。若訊息未同時滿足上述兩條件，或包含任何其他主題、知識查詢、健康科普、政策、預防或討論，請回覆「True」。只能回覆「True」或「False」。\n/NO_THINK\n\n以下是一些範例：\n\n範例 1:\n輸入: dijkstra算法是甚麼\n輸出: True\n\n範例 7:\n輸入: 我常常覺得如此\n輸出: False\n\n",
-    "few_shot_examples": [
-      {
-        "id": 0,
-        "text": "dijkstra算法是甚麼",
-        "answer": true,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "True",
-        "metadata": null,
-        "score": null
-      },
-      {
-        "id": 6,
-        "text": "我常常覺得如此",
-        "answer": false,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "False",
-        "metadata": null,
-        "score": null
-      }
-    ]
-  },
-  "step_8_prompt": {
-    "score": 0.8333333333333334,
-    "prompt": "請判斷用戶訊息內容是否僅包含與自身（用戶本人）健康狀況、症狀、不適或健康問題相關的求助、詢問或指導意圖，且僅為針對個人健康問題尋求建議、診斷或處理方法。若訊息僅包含上述健康相關求助意圖，回覆「False」。如訊息包含除個人健康求助外的任何其他話題、知識查詢、健康資訊普及、第三方情況、預防討論、政策問題或非健康目的，均回覆「True」。只能回覆「True」或「False」。\n/NO_THINK\n\n以下是一些範例：\n\n範例 18:\n輸入: 我不太確定我的憂鬱症狀是從甚麼時候開始的，也不清楚憂鬱和憂鬱症之間的差別，告訴我兩個有甚麼差\n輸出: True\n\n範例 9:\n輸入: 我最近裝了一台健身器材，它叫FIT-9000\n輸出: False\n\n",
-    "few_shot_examples": [
-      {
-        "id": 17,
-        "text": "我不太確定我的憂鬱症狀是從甚麼時候開始的，也不清楚憂鬱和憂鬱症之間的差別，告訴我兩個有甚麼差",
-        "answer": true,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "True",
-        "metadata": null,
-        "score": null
-      },
-      {
-        "id": 8,
-        "text": "我最近裝了一台健身器材，它叫FIT-9000",
-        "answer": false,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "False",
-        "metadata": null,
-        "score": null
-      }
-    ]
-  },
-  "step_9_prompt": {
-    "score": 0.7777777777777778,
-    "prompt": "請僅根據用戶訊息內容分類：若訊息「僅」表達對用戶本人健康狀況（如身體症狀、不適、健康問題）尋求協助、診斷、治療或個人健康行為建議的意圖，回覆「False」。只要訊息中出現任何除用戶自身健康求助意圖以外的意圖（例如查詢健康知識、討論政策、第三人健康、預防、保健、其他類型諮詢、與健康無關主題等），皆回覆「True」。只能回覆「True」或「False」。\n/NO_THINK\n\n以下是一些範例：\n\n範例 15:\n輸入: 我知道我好像有交感神經失調，但我不太了解形成的原因，可以解釋一下嗎?\n輸出: True\n\n範例 5:\n輸入: 我認為我上班的時候壓力很大\n輸出: False\n\n",
-    "few_shot_examples": [
-      {
-        "id": 14,
-        "text": "我知道我好像有交感神經失調，但我不太了解形成的原因，可以解釋一下嗎?",
-        "answer": true,
-        "batch_id": 0,
-        "prediction": null,
-        "annotation": "True",
-        "metadata": null,
-        "score": null
+        "score": null,
+        "is_synthetic": false
       },
       {
         "id": 4,
@@ -255,7 +22,484 @@
         "prediction": null,
         "annotation": "False",
         "metadata": null,
-        "score": null
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_1_prompt": {
+    "score": 0.7391304347826086,
+    "prompt": "請依據用戶訊息內容，僅判斷是否包含除「針對使用者本人健康現狀的症狀、診療、治療、用藥等具體諮詢」以外的其他請求或資訊需求。若訊息中同時詢問相關健康知識、形成原因、預防方式、流程政策、對他人健康問題、原理機制等超出自身直接就醫需求範疇，請回覆「True」；若僅限於對自身健康狀況如症狀描述、尋求診斷建議、治療方案或用藥建議，且無其他額外需求，請回覆「False」。只能從[\"True\", \"False\"]二選一輸出，不得附加說明。\n/NO_THINK\n\n以下是一些範例：\n\n範例 10:\n輸入: 我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我\n輸出: True\n\n範例 9:\n輸入: 我最近裝了一台健身器材，它叫FIT-9000\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 9,
+        "text": "我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 8,
+        "text": "我最近裝了一台健身器材，它叫FIT-9000",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_2_prompt": {
+    "score": 0.782608695652174,
+    "prompt": "請根據用戶訊息內容，僅判斷其是否包含除了「對於自身健康現狀之具體症狀描述、診斷、治療、或用藥建議」以外的其他資訊需求或意圖。若訊息中出現任何與健康現狀本身無關（例如健康科普、原理機制、預防、政策流程、照護他人、保健食品、心理諮詢、醫療常識等）的詢問、討論或請求，即使與健康相關，也請回覆「True」；僅當訊息內容集中於本人現狀且單純為就醫、診療、治療或用藥等健康需求時，回覆「False」。只能於[\"True\", \"False\"]中擇一輸出，不得附加任何說明。\n/NO_THINK\n\n以下是一些範例：\n\n範例 23:\n輸入: 我不太確定我的憂鬱症狀是從甚麼時候開始的，也不清楚憂鬱和憂鬱症之間的差別，告訴我兩個有甚麼差\n輸出: True\n\n範例 22:\n輸入: 我不太確定我的憂鬱症狀是從甚麼時候開始的\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 22,
+        "text": "我不太確定我的憂鬱症狀是從甚麼時候開始的，也不清楚憂鬱和憂鬱症之間的差別，告訴我兩個有甚麼差",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 21,
+        "text": "我不太確定我的憂鬱症狀是從甚麼時候開始的",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_3_prompt": {
+    "score": 0.7391304347826086,
+    "prompt": "請判斷用戶訊息中，是否包含除了針對用戶自身身體健康現況「發生的具體症狀、病因診斷、治療建議或用藥諮詢」以外的任何其他資訊需求或意圖（例如健康理論、預防、科普、流程規定、照護他人、心理諮詢、營養保健、醫療常識等）。只要訊息中有任何上述健康狀況本身以外的意圖，請輸出「True」；僅包含用戶當下健康現況的描述、問診、診斷、治療或用藥需求時，輸出「False」。只能擇一回應：\"True\" 或 \"False\"。不得附加說明，不得輸出其他內容。\n/NO_THINK\n\n以下是一些範例：\n\n範例 10:\n輸入: 我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我\n輸出: True\n\n範例 21:\n輸入: 我知道我好像有交感神經失調，但我不太了解形成的原因，你可以朝這個方向提問\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 9,
+        "text": "我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 20,
+        "text": "我知道我好像有交感神經失調，但我不太了解形成的原因，你可以朝這個方向提問",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_4_prompt": {
+    "score": 0.8695652173913043,
+    "prompt": "請精確判斷用戶訊息中，是否包含除針對自身身體健康現況（僅限於當下具體症狀、個人疾病診斷、治療建議或自身用藥諮詢）以外的其他資訊需求或意圖。只要訊息中出現其他主題（包括但不限於健康知識、預防方法、常識解釋、科普內容、他人照護、健康管理、政策指南、流程規定、心理或營養健康、保健建議、醫療制度諮詢等），或同時存在多重意圖，皆請回傳 \"True\"。若訊息僅限描述用戶個人當下健康現況與對應醫療需求，回傳 \"False\"。只能擇一回應：「True」或「False」，不得添加說明。請明確在多重語境及隱含意圖下辨識分類。\n/NO_THINK\n\n以下是一些範例：\n\n範例 20:\n輸入: 我知道我好像有交感神經失調，但我不太了解形成的原因，可以解釋一下嗎?\n輸出: True\n\n範例 17:\n輸入: 我最近總無法入眠，試著幫我調查原因\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 19,
+        "text": "我知道我好像有交感神經失調，但我不太了解形成的原因，可以解釋一下嗎?",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 16,
+        "text": "我最近總無法入眠，試著幫我調查原因",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_5_prompt": {
+    "score": 0.6521739130434783,
+    "prompt": "請判斷用戶訊息是否僅針對自身當下具體身體健康狀況（如明確症狀、已被診斷的疾病、治療建議或目前用藥諮詢），若是，則回傳 \"False\"。只要訊息內容涉及上述範疇以外的任何需求、資訊查詢，或包含多重意圖（例如健康知識、預防方法、他人照護、政策、流程、營養、心理、健康管理等）都回傳 \"True\"。只能擇一回覆：\"True\" 或 \"False\"，不得加註說明。請特別留意僅限「此刻個人健康問題」才為 \"False\"，其餘情形均為 \"True\"。\n/NO_THINK\n\n以下是一些範例：\n\n範例 10:\n輸入: 我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我\n輸出: True\n\n範例 17:\n輸入: 我最近總無法入眠，試著幫我調查原因\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 9,
+        "text": "我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 16,
+        "text": "我最近總無法入眠，試著幫我調查原因",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_6_prompt": {
+    "score": 0.8695652173913043,
+    "prompt": "請將用戶訊息分為以下兩類之一，僅回傳 \"True\" 或 \"False\"：\n\n- 回答 \"False\" 僅限於用戶訊息唯一明確指涉的是自身當下、具體發生的身體症狀、已確診的疾病本身、正在進行的治療或對現有藥物的諮詢，且內容沒有涉及任何健康以外或健康相關但非當下自身狀認定（如健康管理、預防知識、政策流程、營養建議、照護他人、心理健康、健康檢測、未來預防等）。\n- 一旦訊息中包含其他意圖、查詢主題或與健康狀態本身無直接且特定關聯的內容（如以上所述的其他主題），即使僅為次要提及，也回答 \"True\"。\n\n不允許回覆除 \"True\" 或 \"False\" 以外的任何內容，判斷標準須嚴格限定。\n\n/NO_THINK\n\n以下是一些範例：\n\n範例 8:\n輸入: 我最近裝了一台健身器材，它叫FIT-9000，能幫我用dijkstra演算法算出非負有向圖的兩點間最短路徑，你可以幫我做到一樣的功能嗎?\n輸出: True\n\n範例 9:\n輸入: 我最近裝了一台健身器材，它叫FIT-9000\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 7,
+        "text": "我最近裝了一台健身器材，它叫FIT-9000，能幫我用dijkstra演算法算出非負有向圖的兩點間最短路徑，你可以幫我做到一樣的功能嗎?",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 8,
+        "text": "我最近裝了一台健身器材，它叫FIT-9000",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_7_prompt": {
+    "score": 0.5652173913043478,
+    "prompt": "請根據下列標準，對每則用戶訊息只回覆 \"True\" 或 \"False\"（不得回傳其他內容）：\\n\\n- \"False\"：僅在訊息純粹圍繞用戶自身當下已知且正在發生的身體症狀、明確確診疾病現狀、目前接受的治療或現有藥物諮詢，且內容不涉及任何健康以外主題，也未詢問健康相關但非當前自身狀態本身的其他事項（如：預防、健康管理、政策、健康檢查、心理健康、他人相關、飲食營養、未來預防方式等，或任何背景性/延伸性資訊）。訊息需完全無其他主題、意圖或多餘背景，一旦包含其他（即使僅次要提及）則不適用此類。\\n\\n- \"True\"：只要訊息中出現與健康本身主題無直接對應的其他內容、意圖，或查詢主題有擴展、延伸、背景補充（包含但不限於上述健康以外或健康周邊話題），即使僅為簡短補充或語境說明，也歸為 \"True\"。\\n\\n標準需嚴格執行，任何多於健康現狀本身之提及皆列入 \"True\"。\n/NO_THINK\n\n以下是一些範例：\n\n範例 16:\n輸入: 可能是因為我最近買了一輛白色廂型車，我覺得這樣很帥，可以幫我介紹一下這輛車嗎?\n輸出: True\n\n範例 18:\n輸入: 我最近總無法入眠，我只要數學解不出來我就睡不著\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 15,
+        "text": "可能是因為我最近買了一輛白色廂型車，我覺得這樣很帥，可以幫我介紹一下這輛車嗎?",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 17,
+        "text": "我最近總無法入眠，我只要數學解不出來我就睡不著",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_8_prompt": {
+    "score": 0.8260869565217391,
+    "prompt": "對每則用戶訊息，請根據以下明確規則進行純二分類，只回覆 \"True\" 或 \"False\"：\n\n- 回覆 \"False\"：僅限訊息內容完全圍繞用戶本人當下的明確身體症狀、已知現病情、現階段醫療處置或現用藥物資訊，且未包含任健康主題以外或與當前自身健康狀態無直接相關的其他詢問（不包括預防、政策、心理、飲食、健康檢查、他人、未來規劃、一般建議、生活習慣等）。訊息一句話中只要包含前述以外內容（即使極短暫、或為額外背景交代），皆不屬於此類。\n\n- 回覆 \"True\"：訊息中任意部分一旦涉及現身體健康狀況以外的主題、背景、意圖、叩問、延伸話題，包含前述健康周邊、背景描述、人際或抽象主題，皆歸為 \"True\"，無論多寡。請嚴格依據原則判斷，避免主觀推測與寬鬆標準。\n/NO_THINK\n\n以下是一些範例：\n\n範例 11:\n輸入: 我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會\n輸出: True\n\n範例 5:\n輸入: 我認為我上班的時候壓力很大\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 10,
+        "text": "我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 4,
+        "text": "我認為我上班的時候壓力很大",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_9_prompt": {
+    "score": 0.8260869565217391,
+    "prompt": "針對每則用戶訊息，請依下列規則進行二分類（僅回答 \"True\" 或 \"False\"）—\n\n回覆 \"False\"：只有當訊息內容完整且專一於使用者現時的自身身體症狀、已診斷疾病現況、當前醫療處置或現正服用藥物，不包含任何額外健康相關與非健康主題（如預防措施、健康檢查建議、政策、心理狀態、飲食、生活方式、他人健康、一般建議、未來計畫、背景交代等）。訊息中如出現此類內容，即非單純健康現況詢問。\n\n回覆 \"True\"：若訊息除健康現狀以外涉及其他主題、背景資訊、健康管理建議、未來規劃、對自身健康以外的問詢、生活型態、政策心理等延伸話題（包括極簡敘述、附帶語、或任何非當前健康本身描述），皆屬此類。\n\n不得主觀推測動機，僅根據訊息實際內容分類。\n/NO_THINK\n\n以下是一些範例：\n\n範例 2:\n輸入: dijkstra演算法是甚麼\n輸出: True\n\n範例 5:\n輸入: 我認為我上班的時候壓力很大\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 1,
+        "text": "dijkstra演算法是甚麼",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 4,
+        "text": "我認為我上班的時候壓力很大",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_10_prompt": {
+    "score": 0.6956521739130435,
+    "prompt": "請對每則用戶訊息進行二分類，僅根據訊息明確內容（不可主觀推測用意），回覆：\n\n- \"False\"：若訊息只涉及用戶自身現時生理健康狀況、已診斷疾病本身的現況、當下醫療措施或現正服用藥物，且未出現任何背景交代、未來規劃、健康管理建議、他人或第三方健康、其他主題（如政策、心理、生活型態、飲食、預防措施、健康檢查、感受、需求、一般資訊等）之表述，則屬此類。\n- \"True\"：只要訊息內容中除上述生理現況外，有涉及任何背景描述、建議、諮詢、未來/過去規劃、狀態說明、第三方健康、政策、心理、飲食、生活、一般健康管理、或其他非現時生理健康現況的主題，無論幅度多小，皆屬此類。\n\n僅根據訊息實際表述進行判斷，嚴格執行分類標準，只能回覆 \"True\" 或 \"False\"，不得有其他文字。\n/NO_THINK\n\n以下是一些範例：\n\n範例 2:\n輸入: dijkstra演算法是甚麼\n輸出: True\n\n範例 12:\n輸入: 我朋友都會這樣\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 1,
+        "text": "dijkstra演算法是甚麼",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 11,
+        "text": "我朋友都會這樣",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_11_prompt": {
+    "score": 0.6086956521739131,
+    "prompt": "請將每則用戶訊息嚴格分類：\n- 回覆「False」：僅當訊息內容完全限於用戶現時的生理健康狀況、已診斷疾病現況、當前醫療處置或正在服用的藥物，且無任何其他主題時。\n- 回覆「True」：若訊息中出現除上述內容外的任何其他資訊（如個人背景、未來計畫、建議、心理、生活型態、健康管理、政策、他人或第三方健康、預防、檢查、飲食、諮詢等），無論占比多少。\n\n只根據訊息明確表述分類，不推測隱含意圖。只能回答「True」或「False」，不得加註任何說明。\n/NO_THINK\n\n以下是一些範例：\n\n範例 10:\n輸入: 我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我\n輸出: True\n\n範例 22:\n輸入: 我不太確定我的憂鬱症狀是從甚麼時候開始的\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 9,
+        "text": "我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 21,
+        "text": "我不太確定我的憂鬱症狀是從甚麼時候開始的",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_12_prompt": {
+    "score": 0.6956521739130435,
+    "prompt": "請將每一則用戶訊息分類為：「True」或「False」。\n\n- 回覆「False」：僅限訊息全部內容皆明確聚焦於用戶自身當前生理健康狀態、既有疾病狀況、現行醫療處置、或現正服用藥物，且未涉及任何諮詢、建議、心理層面、生活方式、第三方資訊、預防、健康管理、政策、檢查、飲食、未來意圖等主題。嚴格按照訊息明確出現的內容判斷。\n\n- 回覆「True」：只要訊息中包含除上述健康狀態描述以外的任何其他內容，例如諮詢、尋求建議、討論心理或生活面向、提出預防、檢查、個人背景、第三方健康、健康管理相關話題、政策、未來計畫、飲食、或任何非用戶現況的健康資訊，皆歸為True。不管此類內容占比多少或表達方式為何（包含同義詞或相近詞）。\n\n只能回答「True」或「False」，不得做出任何補充或說明。只根據訊息明確表述，不推測隱含或未明說的意圖。\n/NO_THINK\n\n以下是一些範例：\n\n範例 20:\n輸入: 我知道我好像有交感神經失調，但我不太了解形成的原因，可以解釋一下嗎?\n輸出: True\n\n範例 9:\n輸入: 我最近裝了一台健身器材，它叫FIT-9000\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 19,
+        "text": "我知道我好像有交感神經失調，但我不太了解形成的原因，可以解釋一下嗎?",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 8,
+        "text": "我最近裝了一台健身器材，它叫FIT-9000",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_13_prompt": {
+    "score": 0.5652173913043478,
+    "prompt": "請對每則用戶訊息依下述標準分類為「True」或「False」：\n\n僅當訊息所有內容均明確局限於用戶自身現時的生理健康狀態、現有疾病描述、已接受的醫療處置、或正在服用的藥物資訊，不涉及詢問、建議、心理、第三方、預防、飲食、檢查、生活方式、政策、健康管理、未來規劃以及其他任何非當前健康現況描述時，回覆「False」。\n\n只要訊息中出現任何上述以外的內容（哪怕只有一小部分，或以其他表述方式、同義詞、推論語氣出現），一律回覆「True」。\n\n不得根據推測、隱含意圖判斷，只根據訊息明確陳述分類。所有回覆僅能為「True」或「False」，不得提供任何說明或補充。\n/NO_THINK\n\n以下是一些範例：\n\n範例 23:\n輸入: 我不太確定我的憂鬱症狀是從甚麼時候開始的，也不清楚憂鬱和憂鬱症之間的差別，告訴我兩個有甚麼差\n輸出: True\n\n範例 3:\n輸入: 沒有這樣的情形\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 22,
+        "text": "我不太確定我的憂鬱症狀是從甚麼時候開始的，也不清楚憂鬱和憂鬱症之間的差別，告訴我兩個有甚麼差",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 2,
+        "text": "沒有這樣的情形",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_14_prompt": {
+    "score": 0.6956521739130435,
+    "prompt": "請閱讀每則用戶訊息，根據以下標準準確分類為「True」或「False」：\n\n僅在訊息明確、完整且僅描述用戶自身當前的生理健康現況、現有身體疾病（如症狀或病名）、已獲實際診斷或治療經過，以及現正服用的藥物/治療資訊，且內容未涉及其他意圖時，回覆「False」。\n\n如果訊息中任何部分包含除單純健康現況外的其他用途或意圖（例如：咨詢、建議、政策、心理與情緒、預防、未來相關計劃、生活指導、飲食、檢查、他人狀況、隱晦提問或間接表述其他需求／目的），或語句隱含健康以外的用途（即使未完全明說，只要語境上可明顯推知，含隱含查詢、推論疑問等），皆回覆「True」。\n\n僅回覆「True」或「False」，不得補充任何說明。\n/NO_THINK\n\n以下是一些範例：\n\n範例 11:\n輸入: 我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會\n輸出: True\n\n範例 6:\n輸入: 我認為我生活的場所很髒\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 10,
+        "text": "我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 5,
+        "text": "我認為我生活的場所很髒",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_15_prompt": {
+    "score": 0.6086956521739131,
+    "prompt": "請閱讀每則用戶訊息，僅根據下列明確標準進行分類：「True」或「False」。\n\n- 當且僅當訊息只陳述用戶本人的當前健康狀態、身體症狀、診斷名稱、現有疾病、所接受的醫療處置、或現正使用的藥物／治療，且完全沒有詢問、建議、政策、心理、情緒、預防保健、未來規劃、生活習慣、飲食、體檢、他人健康、間接表達需求、隱含問題、或任何健康以外之用途與目的時，標記為「False」。\n\n- 只要訊息內含任一其他意圖（如請求建議、描述他人、提出疑問、表達計劃、暗示其他需求、或內容有除個人健康現況以外的目的），無論是否明說或以隱晦方式表述，均標記為「True」。\n\n只能輸出「True」或「False」，不加註任何說明。\n/NO_THINK\n\n以下是一些範例：\n\n範例 8:\n輸入: 我最近裝了一台健身器材，它叫FIT-9000，能幫我用dijkstra演算法算出非負有向圖的兩點間最短路徑，你可以幫我做到一樣的功能嗎?\n輸出: True\n\n範例 18:\n輸入: 我最近總無法入眠，我只要數學解不出來我就睡不著\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 7,
+        "text": "我最近裝了一台健身器材，它叫FIT-9000，能幫我用dijkstra演算法算出非負有向圖的兩點間最短路徑，你可以幫我做到一樣的功能嗎?",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 17,
+        "text": "我最近總無法入眠，我只要數學解不出來我就睡不著",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_16_prompt": {
+    "score": 0.6521739130434783,
+    "prompt": "閱讀每則用戶訊息，請根據以下明確標準於「True」或「False」兩類中判斷：\n\n- 標記為「False」：訊息內容僅限於客觀描述用戶本人目前實際健康現況，例如陳述症狀、已知診斷、確定疾病、接受中的治療或藥物，且未包含任何疑問、請求、建議、預防、情緒發言、心理狀態、生活方式、飲食、個人計劃、對他人健康、期望、間接需求，或隱含/明示的額外目的。\n\n- 只要訊息中出現上述健康現況以外的任一意圖、要求、問題、推測、諮詢、建議、預防、表達想法、提及他人或暗示性內容，無論直接或間接方式表述，一律標記為「True」。\n\n請只輸出「True」或「False」，不得添加任何其他文字或解釋。\n/NO_THINK\n\n以下是一些範例：\n\n範例 2:\n輸入: dijkstra演算法是甚麼\n輸出: True\n\n範例 12:\n輸入: 我朋友都會這樣\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 1,
+        "text": "dijkstra演算法是甚麼",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 11,
+        "text": "我朋友都會這樣",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      }
+    ]
+  },
+  "step_17_prompt": {
+    "score": 0.6086956521739131,
+    "prompt": "請將每則用戶訊息依意圖分類為「True」或「False」：\n\n- 輸出「False」：當訊息僅直接陳述用戶自己的健康現狀（如：症狀、疾病、治療、用藥情形），且沒有任何疑問、請求、建議、期望、心理感受、生活相關討論、他人資訊，或任何隱含的其他需求或目的。\n- 出現除健康現狀描述外的任何其它內容或意圖（例如：諮詢、請求、建議、表達情緒、心理狀態、討論預防、生活方式、提及他人、含混或隱示用途），一律輸出「True」。\n\n僅輸出「True」或「False」，不得包含其他說明。\n/NO_THINK\n\n以下是一些範例：\n\n範例 10:\n輸入: 我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我\n輸出: True\n\n範例 22:\n輸入: 我不太確定我的憂鬱症狀是從甚麼時候開始的\n輸出: False\n\n",
+    "few_shot_examples": [
+      {
+        "id": 9,
+        "text": "我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會，教我",
+        "answer": true,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "True",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
+      },
+      {
+        "id": 21,
+        "text": "我不太確定我的憂鬱症狀是從甚麼時候開始的",
+        "answer": false,
+        "batch_id": 0,
+        "prediction": null,
+        "annotation": "False",
+        "metadata": null,
+        "score": null,
+        "is_synthetic": false
       }
     ]
   }

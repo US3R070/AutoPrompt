@@ -118,7 +118,8 @@ class Eval:
             # print prompt_input
             print(prompt+"\n")
             
-            print(self.dataset['annotation'],"\r\n", self.dataset['prediction'])
+            for i in range(len(self.dataset)):
+                print(f"{self.dataset['annotation'][i]} {self.dataset['prediction'][i]}")
             conf_matrix = confusion_matrix(self.dataset['annotation'],
                                            self.dataset['prediction'])
             conf_text = f"Confusion matrix columns:{self.label_schema} the matrix data:"

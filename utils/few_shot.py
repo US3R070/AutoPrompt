@@ -154,8 +154,9 @@ class FewShotSelector:
                 records = predictor.apply(dataset, 0, leq=True)
                 dataset.update(records)
                 
-                # 評估
-                evaluator.dataset = dataset.get_leq(0)
+                # 評估 
+                # 只保留is_synthe=False的資料
+                evaluator.dataset = dataset.get_leq(0)[dataset.get_leq(0)['is_synthetic'] == False]
                 evaluator.eval_score()
                 score = evaluator.mean_score
                 
@@ -179,6 +180,7 @@ class FewShotSelector:
             'score': best_score,
             'prompt': best_prompt
         }
+        
         
         logging.info(f"最佳 few-shot 組合分數: {best_score:.4f}")
         return result

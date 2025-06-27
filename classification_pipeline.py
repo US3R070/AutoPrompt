@@ -59,6 +59,8 @@ class ResOptimizationPipeline(OptimizationPipeline):
         self.eval.eval_score()
         logging.info('Calculating Score')
         large_errors = self.eval.extract_errors()
+        
+        
         self.eval.add_history(self.cur_prompt, self.task_description)
 
         if self.config.use_wandb:
@@ -89,7 +91,7 @@ class ResOptimizationPipeline(OptimizationPipeline):
                     "prompt": prompt,
                     "score": score
                 }, ensure_ascii=False) + "\n")
-        save_prompt_history(self.output_path, self.batch_id, self.cur_prompt, self.eval.mean_score)
+        save_prompt_history(self.output_path, self.batch_id, self.predictor.cur_instruct, self.eval.mean_score)
 
         return False
 
