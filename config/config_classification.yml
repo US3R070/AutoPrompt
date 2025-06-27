@@ -21,27 +21,27 @@ annotator:
         mini_batch_size: 1
         mode: 'annotation'
 
-# reasoner:
-#     method: 'llm'
-#     config:
-#         llm:
-#             type: 'OpenAI'
-#             name: 'o4-mini'
-#             # model_kwargs: {"seed": 220}
-#             temperature: 1
-#         num_workers: 3
-
-
 reasoner:
     method: 'llm'
     config:
         llm:
-            type: 'Ollama'
-            name: 'qwen3:8b'
-            base_url: 'https://ollama.havenook.com'
+            type: 'OpenAI'
+            name: 'gpt-4o'
             # model_kwargs: {"seed": 220}
             temperature: 1
         num_workers: 3
+
+
+# reasoner:
+#     method: 'llm'
+#     config:
+#         llm:
+#             type: 'Ollama'
+#             name: 'qwen3:8b'
+#             base_url: 'https://ollama.havenook.com'
+#             # model_kwargs: {"seed": 220}
+#             temperature: 1
+#         num_workers: 3
 
 # predictor:
 #     method: 'llm'
