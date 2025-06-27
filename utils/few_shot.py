@@ -27,8 +27,9 @@ class FewShotSelector:
         self.few_shot_history = []
         
     def set_examples_pool(self, examples_df):
-        """設定可用的範例池"""
-        self.examples_pool = examples_df.copy()
+        """只保留有正確答案的 few-shot pool"""
+        # 只保留 annotation 欄位非空的資料
+        self.examples_pool = examples_df[examples_df['annotation'].notna() & (examples_df['annotation'] != '')].copy()
         
     def generate_few_shot_text(self, examples):
         """
@@ -53,21 +54,14 @@ class FewShotSelector:
     
     def combine_prompt_with_few_shot(self, base_prompt, few_shot_examples):
         """
-        將基礎 prompt 與 few-shot examples 結合
-        
-        Args:
-            base_prompt: 基礎 prompt 字串
-            few_shot_examples: DataFrame，few-shot 範例
-            
-        Returns:
-            str: 結合後的完整 prompt
+        將基礎 prompt 與 few-shot examples 結合（prompt在前，few-shot在後）
         """
         if not self.enable_few_shot or few_shot_examples.empty:
             return base_prompt
-            
+
         few_shot_text = self.generate_few_shot_text(few_shot_examples)
-        combined_prompt = f"{few_shot_text}\n現在請根據上述範例進行分類：\n\n{base_prompt}"
-        
+        # prompt 在前，few-shot 在後
+        combined_prompt = f"{base_prompt}\n\n{few_shot_text}"
         return combined_prompt
     
     def sample_few_shot_combinations(self, max_combinations=10):
