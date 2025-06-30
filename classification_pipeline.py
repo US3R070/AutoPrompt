@@ -7,9 +7,10 @@ from optimization_pipeline import OptimizationPipeline
 from dataset.base_dataset import DatasetBase
 
 class ResOptimizationPipeline(OptimizationPipeline):
-    def __init__(self, *args, reasoner=None, few_shot_selector=None, **kwargs):
+    def __init__(self, *args, reasoner=None, meta_chain=None, few_shot_selector=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.reasoner = reasoner
+        # self.reasoner = reasoner  # 註解掉 Reasoner
+        self.meta_chain = meta_chain  # 新增 meta_chain
         self.few_shot_selector = few_shot_selector
 
     def step(self, current_iter, total_iter):
@@ -36,8 +37,9 @@ class ResOptimizationPipeline(OptimizationPipeline):
         # Few-shot 評估（如果啟用）
         if self.few_shot_selector:
             logging.info('開始 Few-shot 評估...')
-            combinations = self.few_shot_selector.sample_few_shot_combinations(max_combinations=5)
-            # 注意：這裡傳入 base_prompt（不加 few-shot）
+            max_num = self.dataset.get_leq(0)[self.dataset.get_leq(0)['is_synthetic'] == False].shape[0]
+            max_num = int(max_num/2)
+            combinations = self.few_shot_selector.sample_few_shot_combinations(max_combinations=max_num)
             best_few_shot_result = self.few_shot_selector.evaluate_few_shot_combinations(
                 self.cur_prompt, combinations, self.predictor, self.eval, self.dataset
             )
@@ -46,8 +48,11 @@ class ResOptimizationPipeline(OptimizationPipeline):
             prompt_id = f"step_{self.batch_id}_prompt"
             self.few_shot_selector.save_best_few_shot(prompt_id, best_few_shot_result)
             logging.info(f'Few-shot 最佳分數: {best_few_shot_result["score"]:.4f}')
+            # 新增：few-shot raw prompt
+            raw_prompt = predictor_prompt
         else:
             predictor_prompt = self.cur_prompt
+            raw_prompt = self.cur_prompt
 
         # predictor 評估（用目前 prompt + best few-shot，如有）
         self.predictor.cur_instruct = predictor_prompt
@@ -60,8 +65,40 @@ class ResOptimizationPipeline(OptimizationPipeline):
         logging.info('Calculating Score')
         large_errors = self.eval.extract_errors()
         
-        
-        self.eval.add_history(self.cur_prompt, self.task_description)
+        # ====== 新增：直接用 raw prompt + raw testdata 計算真實 score ======
+        from utils.llm_chain import get_llm
+        import re
+        testdata = self.dataset.get_leq(self.batch_id)
+        llm = get_llm(self.config.predictor.config.llm)
+        raw_predictions = []
+        for i, row in testdata.iterrows():
+            # few-shot prompt 已經在 raw_prompt
+            user_input = row['text']
+            prompt = f"{raw_prompt}\n\n用戶訊息：{user_input}"
+            response = llm.invoke(prompt)  # 直接傳 str
+            # 只抓 True/False
+            if isinstance(response, dict) and 'text' in response:
+                resp_text = response['text']
+            else:
+                resp_text = str(response)
+            match = re.search(r'(True|False)', resp_text, re.IGNORECASE)
+            label = match.group(1) if match else ''
+            raw_predictions.append(label)
+        testdata = testdata.copy()
+        testdata['prediction'] = raw_predictions
+        score = (testdata['prediction'].astype(str).str.lower() == testdata['annotation'].astype(str).str.lower()).mean()
+        # 記錄到 history
+        self.eval.history.append({
+            'prompt': raw_prompt,
+            'score': score,
+            'errors': testdata[testdata['prediction'].astype(str).str.lower() != testdata['annotation'].astype(str).str.lower()],
+            'confusion_matrix': None,
+            'analysis': '[raw prompt 真實評分]'
+        })
+        print(f"[Raw prompt 真實分數]: {score:.4f}")
+        # ====== END ======
+
+        # self.eval.add_history(self.cur_prompt, self.task_description)  # 不再用 predictor_prompt 的 history
 
         if self.config.use_wandb:
             large_errors = large_errors.sample(n=min(6, len(large_errors)))
@@ -80,7 +117,6 @@ class ResOptimizationPipeline(OptimizationPipeline):
             self.run_step_prompt()
         self.save_state()
 
-        # 新增：每一輪都存下當前 prompt 和分數
         def save_prompt_history(output_dir, batch_id, prompt, score):
             output_dir = Path(output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -91,7 +127,7 @@ class ResOptimizationPipeline(OptimizationPipeline):
                     "prompt": prompt,
                     "score": score
                 }, ensure_ascii=False) + "\n")
-        save_prompt_history(self.output_path, self.batch_id, self.predictor.cur_instruct, self.eval.mean_score)
+        save_prompt_history(self.output_path, self.batch_id, raw_prompt, score)
 
         return False
 
@@ -107,13 +143,27 @@ class ResOptimizationPipeline(OptimizationPipeline):
                         'prediction': row.get('prediction', ''),
                         'label': row.get('annotation', '')
                     })
-        # 呼叫 reasoner
+        # 用 meta_chain.error_analysis 產生 analysis
         analysis = None
-        if self.reasoner is not None and error_samples:
-            print('error_samples:', error_samples)
-            analysis = self.reasoner.analyze(self.cur_prompt, error_samples)
-            print("[Reasoner 分析結果]:\n" + analysis)
-        # 將 analysis 傳給 meta_chain
+        if self.meta_chain is not None and error_samples:
+            # 準備 error_analysis prompt_input
+            large_error_to_str = self.eval.large_error_to_str(last_history[-1]['errors'], self.config.meta_prompts.num_err_prompt)
+            prompt_input = {
+                'task_description': self.task_description,
+                'accuracy': self.eval.mean_score,
+                'prompt': self.cur_prompt,
+                'failure_cases': large_error_to_str
+            }
+            # 若有 label_schema 也帶入
+            if 'label_schema' in self.config.dataset.keys():
+                prompt_input['labels'] = json.dumps(self.config.dataset.label_schema)
+            # 若有混淆矩陣也帶入
+            if 'confusion_matrix' in last_history[-1]:
+                prompt_input['confusion_matrix'] = last_history[-1]['confusion_matrix']
+            analysis_result = self.meta_chain.error_analysis.invoke(prompt_input)
+            analysis = analysis_result['text'] if isinstance(analysis_result, dict) and 'text' in analysis_result else str(analysis_result)
+            print("[Error Analysis 分析結果]:\n" + analysis)
+        # 將 analysis 傳給 meta_chain.step_prompt_chain
         history_prompt = '\n'.join([self.eval.sample_to_text(sample,
                                                         num_errors_per_label=self.config.meta_prompts.num_err_prompt,
                                                         is_score=True) for sample in last_history])

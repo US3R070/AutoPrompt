@@ -63,7 +63,7 @@ predictor:
             name: 'qwen3:8b'
             base_url: 'https://ollama.havenook.com'
             # model_kwargs: {"temperature": 0}
-            temperature: 0
+            temperature: 0.0
         num_workers: 2
         prompt: 'prompts/predictor_completion/prediction.prompt'
         mini_batch_size: 1
@@ -72,11 +72,11 @@ predictor:
 meta_prompts:
     folder: 'prompts/meta_prompts_classification'
     num_err_prompt: 2
-    num_err_samples: 3
+    num_err_samples: 5
     history_length: 3
-    num_generated_samples: 8
-    num_initialize_samples: 8
-    samples_generation_batch: 4
+    num_generated_samples: 17
+    num_initialize_samples: 40
+    samples_generation_batch: 3
     num_workers: 3
     warmup: 3
 
