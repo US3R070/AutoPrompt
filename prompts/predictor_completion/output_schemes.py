@@ -21,8 +21,7 @@ def annotation_parser(response: dict) -> dict:
     """
     text = response.get('text', '')
     # print(response)
-    # 更寬鬆的 regex：允許空格，不區分大小寫，處理冒號的全形半形
-    # pattern = re.compile(r'Sample\s*(\d+)\s*[:：]\s*()', re.IGNORECASE)
+    # 更寬鬆的 regex：允許空格，不區分大小寫，處理字號的全形半形
     pattern = re.compile(r'Sample (\d+): (.*?)(?=<eos>|$)', re.DOTALL)
     matches = pattern.findall(text)
     

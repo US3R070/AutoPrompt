@@ -12,7 +12,7 @@ import pandas as pd
 import csv
 from utils.reasoner import Reasoner
 from utils.few_shot import FewShotSelector
-from utils.llm_chain import get_llm
+from utils.llm_chain import get_llm, MetaChain
 import dotenv
 from classification_pipeline import ResOptimizationPipeline
 
@@ -24,13 +24,13 @@ def main():
                        help='配置文件路徑')
     parser.add_argument('--prompt', type=str, 
                        default=
-                       """請僅根據用戶訊息內容，判斷其是否有除自身健康狀況諮詢（例如症狀描述、個人診療、治療或用藥建議）以外的其他意圖。若訊息中出現任何與個人健康協助無關的問題或要求（如討論知識、經驗、健康資訊、政策流程、他人健康、分析原理、預防方式、或泛泛討論），請回傳「True」；若僅針對自身健康現狀尋求診斷、治療或用藥建議且無其他需求，請回傳「False」。只能從[\"True\", \"False\"]中選擇一者輸出，勿附加說明。\n/NO_THINK
                        """
-                       
+                       根據以下規則，將用戶訊息只分類為「True」或「False」：\n\n- 當訊息單純描述、記錄、反思自身或親友的健康、心理、身體、情緒狀態、生活行為（例如：個人感受、經歷、行為、選擇、觀察、記錄，包含表達不理解、記不得、或單純疑慮），且沒有提出或隱含對外部知識、建議、說明、定義、原因、比較、方法、解釋、判斷等「請求」、「提問」、「討論」時，請判為「False」。*即使訊息涉及特定物件（例：健身器材或環境）、一般敘述、或非健康相關小評論，若沒有尋求外部資訊、方法或意見，亦判為「False」。*\n\n- 只要訊息明確（或隱含）諮詢、請求、討論、分析非個人健康經驗以外的資訊、外部知識、定義、解釋、方法、比較、第三方狀況、操作、建議、原理，或有外部資源請求，判為「True」。\n\n訊息若僅為中立自述、個人行為陳述、不帶請求外部內容者，應判為「False」，不可因提及物件、背景敘述、或非健康小感想而誤判為「True」。\n\n僅回覆「True」或「False」。\n/NO_THINK\n\n以下是一些範例：\n\n範例 18:\n輸入: 我覺得壓力好大，因為最近要社團表演了，要上台講解dp背包問題的實現，但我還不會\n輸出: True\n\n範例 13:\n輸入: 我一周運動3次 每次30分鐘\n輸出: False\n\n
+                       """
                        ,
                        help='初始prompt')
     parser.add_argument('--task_description', type=str,
-                       default='準確判斷用戶訊息是否包含除健康要求外的其他意圖，有任何其他意圖的話回傳 "True"，僅健康意圖則回傳 "False"。不要回傳其他內容',
+                       default='準確判斷用戶訊息是否包含除健康外的其他要求、意圖或請求，有任何其他意圖的話回傳 "True"，僅健康意圖則回傳 "False"。不要回傳其他內容',
                        help='任務描述')
     parser.add_argument('--num_steps', type=int, default=10,
                        help='優化步驟數')
@@ -94,11 +94,8 @@ def main():
 
     # 初始化 Reasoner
     llm = get_llm(config.reasoner.config.llm)
-    analysis_prompt_template = (
-        "你是一個專業的 prompt 工程師。以下是舊的 prompt 及其導致的錯誤案例，請分析這個 prompt 為什麼會導致這些錯誤，並給出具體的改進建議。\n\n"
-        "舊 prompt:\n{old_prompt}\n\n錯誤案例:\n{error_cases}\n\n請用大約70字給出具體為甚麼會錯的根本原因。"
-    )
-    reasoner = Reasoner(llm, analysis_prompt_template)
+    # reasoner = Reasoner(llm)  # 註解掉 Reasoner
+    meta_chain = MetaChain(config)
 
     # 初始化 Few-shot Selector
     few_shot_selector = None
@@ -121,7 +118,8 @@ def main():
         task_description=args.task_description,
         initial_prompt=args.prompt,
         output_path=args.output_dump,
-        reasoner=reasoner,
+        # reasoner=reasoner,  # 註解掉 Reasoner
+        meta_chain=meta_chain,  # 新增 meta_chain 傳入
         few_shot_selector=few_shot_selector
     )
 
