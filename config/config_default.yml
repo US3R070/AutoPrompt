@@ -1,10 +1,10 @@
 use_wandb: False
 dataset:
     name: 'dataset'
-    records_path: null
-    initial_dataset: ''
-    label_schema: ["Yes", "No"]
-    max_samples: 50
+    records_path: 'dataset/generation_dataset.csv'
+    initial_dataset: 'dataset/generation_dataset.csv'
+    label_schema: ["1","2","3","4","5"]
+    max_samples: 40
     semantic_sampling: False # Change to True in case you don't have M1. Currently there is an issue with faiss and M1
 
 annotator:

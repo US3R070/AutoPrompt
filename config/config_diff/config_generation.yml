@@ -2,8 +2,11 @@ annotator:
     method : ''
 
 dataset:
-    max_samples: 20
-    label_schema:  ["1","2","3","4","5"]
+    records_path: 'dataset/generation_dataset.csv'
+    initial_dataset: 'dataset/generation_dataset.csv'
+    label_schema: ["1","2","3","4","5"]
+    max_samples: 40
+    semantic_sampling: False
 
 predictor:
     method : 'llm'
