@@ -5,7 +5,7 @@ dataset:
     records_path: 'dataset/classification_dataset.csv'
     initial_dataset: 'dataset/classification_dataset.csv'
     label_schema: ['True', 'False']
-    max_samples: 30
+    max_samples: 50
     semantic_sampling: False
 
 annotator:
@@ -21,6 +21,14 @@ annotator:
         mini_batch_size: 1
         mode: 'annotation'
 
+# annotator:
+#     method : 'argilla'
+#     config:
+#         api_url: 'https://us3r-070-argilla.hf.space'
+#         api_key: 'admin.apikey'
+#         workspace: 'admin'
+#         time_interval: 5
+
 reasoner:
     method: 'llm'
     config:
@@ -30,30 +38,6 @@ reasoner:
             # model_kwargs: {"seed": 220}
             temperature: 1
         num_workers: 3
-
-
-# reasoner:
-#     method: 'llm'
-#     config:
-#         llm:
-#             type: 'Ollama'
-#             name: 'qwen3:8b'
-#             base_url: 'https://ollama.havenook.com'
-#             # model_kwargs: {"seed": 220}
-#             temperature: 1
-#         num_workers: 3
-
-# predictor:
-#     method: 'llm'
-#     config:
-#         llm:
-#             type: 'OpenAI'
-#             name: 'gpt-4o'
-#             # model_kwargs: {"seed": 220}
-#         num_workers: 3
-#         prompt: 'prompts/predictor_completion/prediction.prompt'
-#         mini_batch_size: 1
-#         mode: 'prediction'
 
 predictor:
     method: 'llm'
@@ -93,5 +77,5 @@ llm:
 
 stop_criteria:
     max_usage: 5
-    patience: 8
+    patience: 7
     min_delta: 0.02 
