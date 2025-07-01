@@ -3,11 +3,13 @@ import json
 from pathlib import Path
 import pandas as pd
 import wandb
+from itertools import combinations
 from optimization_pipeline import OptimizationPipeline
 from dataset.base_dataset import DatasetBase
 
+
 class ResOptimizationPipeline(OptimizationPipeline):
-    def __init__(self, *args, reasoner=None, meta_chain=None, few_shot_selector=None, **kwargs):
+    def __init__(self, *args, meta_chain=None, few_shot_selector=None, **kwargs):
         super().__init__(*args, **kwargs)
         # self.reasoner = reasoner  # 註解掉 Reasoner
         self.meta_chain = meta_chain  # 新增 meta_chain
@@ -38,7 +40,7 @@ class ResOptimizationPipeline(OptimizationPipeline):
         if self.few_shot_selector:
             logging.info('開始 Few-shot 評估...')
             max_num = self.dataset.get_leq(0)[self.dataset.get_leq(0)['is_synthetic'] == False].shape[0]
-            max_num = int(max_num/2)
+            max_num = max(10,combinations(max_num,self.few_shot_selector.num_shots))
             combinations = self.few_shot_selector.sample_few_shot_combinations(max_combinations=max_num)
             best_few_shot_result = self.few_shot_selector.evaluate_few_shot_combinations(
                 self.cur_prompt, combinations, self.predictor, self.eval, self.dataset
@@ -65,7 +67,7 @@ class ResOptimizationPipeline(OptimizationPipeline):
         logging.info('Calculating Score')
         large_errors = self.eval.extract_errors()
         
-        # ====== 新增：直接用 raw prompt + raw testdata 計算真實 score ======
+        # 直接用 raw prompt + raw testdata 計算真實分數 ======
         from utils.llm_chain import get_llm
         import re
         testdata = self.dataset.get_leq(self.batch_id)
@@ -98,7 +100,7 @@ class ResOptimizationPipeline(OptimizationPipeline):
         print(f"[Raw prompt 真實分數]: {score:.4f}")
         # ====== END ======
 
-        # self.eval.add_history(self.cur_prompt, self.task_description)  # 不再用 predictor_prompt 的 history
+        # self.eval.add_history(self.cur_prompt, self.task_description)  # 不要用 predictor_prompt 的 history
 
         if self.config.use_wandb:
             large_errors = large_errors.sample(n=min(6, len(large_errors)))
@@ -154,28 +156,38 @@ class ResOptimizationPipeline(OptimizationPipeline):
                 'prompt': self.cur_prompt,
                 'failure_cases': large_error_to_str
             }
+            
             # 若有 label_schema 也帶入
             if 'label_schema' in self.config.dataset.keys():
                 prompt_input['labels'] = json.dumps(self.config.dataset.label_schema)
             # 若有混淆矩陣也帶入
             if 'confusion_matrix' in last_history[-1]:
                 prompt_input['confusion_matrix'] = last_history[-1]['confusion_matrix']
+            
+            # 用error_analysis找問題
             analysis_result = self.meta_chain.error_analysis.invoke(prompt_input)
             analysis = analysis_result['text'] if isinstance(analysis_result, dict) and 'text' in analysis_result else str(analysis_result)
             print("[Error Analysis 分析結果]:\n" + analysis)
+        
         # 將 analysis 傳給 meta_chain.step_prompt_chain
         history_prompt = '\n'.join([self.eval.sample_to_text(sample,
-                                                        num_errors_per_label=self.config.meta_prompts.num_err_prompt,
-                                                        is_score=True) for sample in last_history])
+                                                            num_errors_per_label=self.config.meta_prompts.num_err_prompt,
+                                                            is_score=True) for sample in last_history])
         prompt_input = {"history": history_prompt, "task_description": self.task_description,
                         'error_analysis': analysis or (last_history[-1].get('analysis', '') if last_history else '')}
+        
+
         if 'label_schema' in self.config.dataset.keys():
             prompt_input["labels"] = json.dumps(self.config.dataset.label_schema)
         prompt_suggestion = self.meta_chain.step_prompt_chain.invoke(prompt_input)
-        prompt_suggestion['prompt'] = prompt_suggestion['prompt']+"\n/NO_THINK"
+        
+        if "NO_THINK" in self.predictor.cur_instruct:
+            prompt_suggestion['prompt'] = prompt_suggestion['prompt']+"\n/NO_THINK"
+        
         if self.meta_chain.step_prompt_chain.llm_config.type == 'google':
             if isinstance(prompt_suggestion, list) and len(prompt_suggestion) == 1:
                 prompt_suggestion = prompt_suggestion[0]['args']
+        
         self.log_and_print(f'Previous prompt score:\n{self.eval.mean_score}\n#########\n')
         self.log_and_print(f'Get new prompt:\n{prompt_suggestion["prompt"]}')
         self.batch_id += 1

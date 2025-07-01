@@ -10,7 +10,6 @@ from utils.config import load_yaml
 import logging
 import pandas as pd
 import csv
-from utils.reasoner import Reasoner
 from utils.few_shot import FewShotSelector
 from utils.llm_chain import get_llm, MetaChain
 import dotenv
@@ -93,7 +92,7 @@ def main():
             print(f"自動添加缺失欄位並寫入: {processed_path}")
 
     # 初始化 Reasoner
-    llm = get_llm(config.reasoner.config.llm)
+    # llm = get_llm(config.reasoner.config.llm)
     # reasoner = Reasoner(llm)  # 註解掉 Reasoner
     meta_chain = MetaChain(config)
 
