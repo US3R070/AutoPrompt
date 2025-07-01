@@ -10,10 +10,10 @@ parser.add_argument('--generation_config_path', default='config/config_diff/conf
 parser.add_argument('--ranker_config_path', default='config/config_diff/config_ranking.yml', type=str, help='Configuration file path')
 
 parser.add_argument('--task_description',
-                    default='',
+                    default='你是一個回答者，你必須用中文對應輸入，產出一個具體的、最多10字的回答',
                     required=False, type=str, help='Describing the task')
 parser.add_argument('--prompt',
-                    default='',
+                    default='你是一個回答者，你必須對輸入來產出一個最多10字的回答|--輸入 : 你口袋裡有多少錢輸出 : 62塊錢--輸入 : 你怎麼不去問問神奇海螺呢?輸出 : 我去問問神奇海螺',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')

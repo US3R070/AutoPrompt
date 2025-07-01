@@ -10,7 +10,7 @@ dataset:
 annotator:
     method : 'argilla'
     config:
-        api_url: ''
+        api_url: 'https://us3r-070-argilla.hf.space'
         api_key: 'admin.apikey'
         workspace: 'admin'
         time_interval: 5

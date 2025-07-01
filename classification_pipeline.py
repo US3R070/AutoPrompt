@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import pandas as pd
 import wandb
-from itertools import combinations
+import math
 from optimization_pipeline import OptimizationPipeline
 from dataset.base_dataset import DatasetBase
 
@@ -40,7 +40,9 @@ class ResOptimizationPipeline(OptimizationPipeline):
         if self.few_shot_selector:
             logging.info('開始 Few-shot 評估...')
             max_num = self.dataset.get_leq(0)[self.dataset.get_leq(0)['is_synthetic'] == False].shape[0]
-            max_num = max(10,combinations(max_num,self.few_shot_selector.num_shots))
+            # 計算所有可能的組合數
+            print(f"所有可能的組合數: {math.comb(max_num,self.few_shot_selector.num_shots)}")
+            max_num = min(10,math.comb(max_num,self.few_shot_selector.num_shots))
             combinations = self.few_shot_selector.sample_few_shot_combinations(max_combinations=max_num)
             best_few_shot_result = self.few_shot_selector.evaluate_few_shot_combinations(
                 self.cur_prompt, combinations, self.predictor, self.eval, self.dataset
