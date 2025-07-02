@@ -244,7 +244,6 @@ class OptimizationPipeline:
         records = self.annotator.apply(self.dataset, self.batch_id)
         self.dataset.update(records)
 
-
         self.predictor.cur_instruct = self.cur_prompt
         logging.info('Running Predictor')
         records = self.predictor.apply(self.dataset, self.batch_id, leq=True)
