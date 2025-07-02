@@ -49,7 +49,9 @@ class Eval:
         self.dataset = self.dataset[(self.dataset['prediction'] != 'Discarded') &
                                     (self.dataset['annotation'] != 'Discarded')]
         self.dataset = self.score_func(self.dataset)
+        print("self.dataset['score'] : ",self.dataset['score'])
         self.mean_score = self.dataset['score'].mean()
+        print("self.mean_score : ",self.mean_score)
         return self.mean_score
 
     def get_max_score(self, warmup=0):
@@ -128,6 +130,7 @@ class Eval:
             prompt_input['confusion_matrix'] = conf_text
         elif self.score_function_name == 'ranking':
             prompt_input['labels'] = self.label_schema
+            print('prompt_input : ',prompt_input)
         analysis = self.analyzer.invoke(prompt_input)
 
         self.history.append({'prompt': prompt, 'score': self.mean_score,

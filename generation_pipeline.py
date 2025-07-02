@@ -29,6 +29,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
                 prompt_input_analysis['labels'] = json.dumps(labels)
             if 'confusion_matrix' in last_history[-1]:
                 prompt_input_analysis['confusion_matrix'] = last_history[-1]['confusion_matrix']
+            
             analysis_result = self.meta_chain.error_analysis.invoke(prompt_input_analysis)
             analysis = analysis_result['text'] if isinstance(analysis_result, dict) and 'text' in analysis_result else str(analysis_result)
         error_analysis = analysis or (last_history[-1].get('analysis', '') if last_history else '')
@@ -45,7 +46,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
         if len(self.dataset) < self.config.dataset.max_samples:
             batch_input = {
                 "num_samples": self.config.meta_prompts.samples_generation_batch,
-                "task_description": self.task_description,
+                "task_description": self.task_description+"\n\n"+"務必用繁體中文生成問題",
                 "prompt": prompt_suggestion['prompt']
             }
             batch_inputs = self.generate_samples_batch(
@@ -69,6 +70,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
                     batch['extra_samples'] = extra_samples_text
             samples_batches = self.meta_chain.step_samples.batch_invoke(batch_inputs, self.config.meta_prompts.num_workers)
             new_samples = [element for sublist in samples_batches for element in sublist['samples']]
+            # new_samples = [f"請用中文生成：{sample}" for sample in new_samples]
             new_samples = self.dataset.remove_duplicates(new_samples)
             self.dataset.add(new_samples, self.batch_id)
             self.cur_prompt = prompt_suggestion['prompt']
@@ -95,11 +97,23 @@ class GenOptimizationPipeline(OptimizationPipeline):
         self.predictor.cur_instruct = self.cur_prompt
         logging.info('Running Predictor')
         records = self.predictor.apply(self.dataset, self.batch_id, leq=True)
+        
+        # print("text : ",self.dataset.records['text'], " annotation : ",self.dataset.records['annotation'], " model_predicts : ",self.dataset.records['prediction'])
+        
         self.dataset.update(records)
+        
+        # print("text : ",self.dataset.records['text'], " annotation : ",self.dataset.records['annotation'], " model_predicts : ",self.dataset.records['prediction'])
+        
         self.eval.dataset = self.dataset.get_leq(self.batch_id)
         self.eval.eval_score()
+        
+        # print("text : ",self.dataset.records['text'], " annotation : ",self.dataset.records['annotation'], " model_predicts : ",self.dataset.records['prediction'], " score : ",self.dataset.records['score'])
+        
         logging.info('Calculating Score')
         large_errors = self.eval.extract_errors()
+        print("large_errors : ",large_errors)
+        # print("text : ",self.dataset.records['text'], " annotation : ",self.dataset.records['annotation'], " model_predicts : ",self.dataset.records['prediction'], " score : ",self.dataset.records['score'])
+        
         self.eval.add_history(self.cur_prompt, self.task_description)
         if self.config.use_wandb:
             large_errors = large_errors.sample(n=min(6, len(large_errors)))

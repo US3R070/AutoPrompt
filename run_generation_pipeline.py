@@ -9,28 +9,35 @@ from pathlib import Path
 import numpy as np
 from generation_pipeline import GenOptimizationPipeline
 
-def process_dataset(config_params, output_dir, filename):
+def process_dataset(config_params, output_dir, filename,type = 'ranker',):
     dataset_path = Path(config_params.dataset.records_path)
     if dataset_path.is_file():
         df = pd.read_csv(dataset_path)
         modified = False
         # 新增：合併 text 和 answer 欄位
-        if ('text' in df.columns) and ('answer' in df.columns):
-            df['text'] = df.apply(lambda row: f"Question:{row['text']} , Answer:{row['answer']}", axis=1)
-            modified = True
+        # if ('text' in df.columns) and ('answer' in df.columns):
+        #     df['text'] = df.apply(lambda row: f"Question:{row['text']} , Answer:{row['answer']}", axis=1)
+        #     modified = True
         # annotation 欄位直接複製 label
         if 'label' in df.columns:
             df['annotation'] = df['label']
             modified = True
         required_cols = {
             'id': lambda df: range(len(df)),
-            'text': (df['text'] if 'text' in df.columns else ''),
+            'text': '',
             'prediction': pd.NA,
-            'annotation': (df['label'] if 'label' in df.columns else pd.NA),
             'metadata': None,
+            'annotation': pd.NA,
             'score': pd.NA,
             'batch_id': 0
         }
+        if type == 'ranker':
+            df['text'] = df.apply(lambda row: f"Question:{row['text']} , Answer:{row['answer']}", axis=1)
+            df['text'] = (df['text'] if 'text' in df.columns else '')
+            df['annotation'] = (df['label'] if 'label' in df.columns else pd.NA)
+        elif type == 'generator':
+            df['text'] = (df['text'] if 'text' in df.columns else '')
+            # df['annotation'] = (df['answer'] if 'answer' in df.columns else '')
         for col, default in required_cols.items():
             if col not in df.columns:
                 if callable(default):
@@ -58,16 +65,23 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--generation_config_path', default='config/config_diff/config_generation.yml', type=str, help='Configuration file path')
 parser.add_argument('--ranker_config_path', default='config/config_diff/config_ranking.yml', type=str, help='Configuration file path')
 
+parser.add_argument('--ranker_task_description',
+                    default='你是一個評分者，你必須依據輸入的問題和答案，依照回答的簡潔和具體程度，最多10字，給出1-5分的分數',
+                    required=False, type=str, help='Describing the task')
+parser.add_argument('--ranker_prompt',
+                    default='你是一個評分者，你必須依據輸入的問題和答案，依照回答的簡潔和具體程度，最多10字，給出1-5分的分數',
+                    required=False, type=str, help='Prompt to use as initial.')
+
 parser.add_argument('--task_description',
                     default='你是一個回答者，你必須用繁體中文對應輸入，產出一個具體的、最多10字的回答',
                     required=False, type=str, help='Describing the task')
 parser.add_argument('--prompt',
-                    default='你是一個回答者，你必須對輸入來產出一個最多10字的回答|--輸入 : 你口袋裡有多少錢輸出 : 62塊錢--輸入 : 你怎麼不去問問神奇海螺呢?輸出 : 我去問問神奇海螺',
+                    default='你是一個回答者，你必須對輸入來產出一個最多10字的回答|--輸入 : 你口袋裡有多少錢--輸出 : 62塊錢--輸入 : 你怎麼不去問問神奇海螺呢?輸出 : 我去問問神奇海螺',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
-parser.add_argument('--num_ranker_steps', default=20, type=int, help='Number of iterations')
-parser.add_argument('--num_generation_steps', default=20, type=int, help='Number of iterations')
+parser.add_argument('--num_ranker_steps', default=1, type=int, help='Number of iterations')
+parser.add_argument('--num_generation_steps', default=15, type=int, help='Number of iterations')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
 opt = parser.parse_args()
@@ -87,9 +101,7 @@ else:
     initial_prompt = opt.prompt
     
 # 處理 ranking 資料集
-process_dataset(ranker_config_params, os.path.join(opt.output_dump, 'ranker'), 'ranking_dataset_processed.csv')
-# 處理 generation 資料集
-process_dataset(generation_config_params, os.path.join(opt.output_dump, 'generator'), 'generation_dataset_processed.csv')
+process_dataset(ranker_config_params, os.path.join(opt.output_dump, 'ranker'), 'ranking_dataset_processed.csv',type = 'ranker')
 
 ranker_pipeline = GenOptimizationPipeline(ranker_config_params, output_path=os.path.join(opt.output_dump, 'ranker'))
 if opt.load_dump != '':
@@ -97,18 +109,27 @@ if opt.load_dump != '':
     ranker_pipeline.predictor.init_chain(ranker_config_params.dataset.label_schema)
 
 if (ranker_pipeline.cur_prompt is None) or (ranker_pipeline.task_description is None):
-    ranker_mod_prompt, ranker_mod_task_desc = modify_input_for_ranker(ranker_config_params, task_description,
-                                                                      initial_prompt)
+    ranker_mod_prompt, ranker_mod_task_desc = modify_input_for_ranker(ranker_config_params, opt.ranker_task_description,
+                                                                      opt.ranker_prompt)
     ranker_pipeline.cur_prompt = ranker_mod_prompt
     ranker_pipeline.task_description = ranker_mod_task_desc
 
 best_prompt = ranker_pipeline.run_pipeline(opt.num_ranker_steps)
+print("best_prompt for ranker : ",best_prompt)
+
+# 處理 generation 資料集
+process_dataset(generation_config_params, os.path.join(opt.output_dump, 'generator'), 'generation_dataset_processed.csv',type = 'generator')
+
 generation_config_params.eval.function_params = ranker_config_params.predictor.config
+
+# print("generation_config_params.eval.function_params : ",generation_config_params.eval.function_params)
+
 generation_config_params.eval.function_params.instruction = best_prompt['prompt']
 generation_config_params.eval.function_params.label_schema = ranker_config_params.dataset.label_schema
-
 generation_pipeline = GenOptimizationPipeline(generation_config_params, task_description, initial_prompt,
                                            output_path=os.path.join(opt.output_dump, 'generator'))
+
+
 if opt.load_dump != '':
     generation_pipeline.load_state(os.path.join(opt.load_dump, 'generator'))
 
