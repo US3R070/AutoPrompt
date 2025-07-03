@@ -7,7 +7,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
         # 產生新一輪的 prompt 與合成資料
         last_history = [self.eval.history[-1]] if self.eval.history else []
         history_prompt = '\n'.join([
-            self.eval.sample_to_text(sample, is_score=True) for sample in last_history
+            self.eval.sample_to_text(sample, is_score=False) for sample in last_history
         ])
         # 取得 labels
         if hasattr(self.config.dataset, 'label_schema'):
@@ -34,12 +34,13 @@ class GenOptimizationPipeline(OptimizationPipeline):
             analysis = analysis_result['text'] if isinstance(analysis_result, dict) and 'text' in analysis_result else str(analysis_result)
         error_analysis = analysis or (last_history[-1].get('analysis', '') if last_history else '')
         prompt_input = {
-            "history": history_prompt,
+            "history": history_prompt.replace('\n', '').replace('#', ''),
             "task_description": self.task_description,
-            "prompt": self.cur_prompt,
-            "labels": labels,
+            # "prompt": self.cur_prompt,
+            # "labels": labels,
             "error_analysis": error_analysis
         }
+        print("prompt_input : ",prompt_input)
         prompt_suggestion = self.meta_chain.step_prompt_chain.invoke(prompt_input)
         self.log_and_print(f'Get new prompt:\n{prompt_suggestion["prompt"]}')
         self.batch_id += 1
@@ -77,9 +78,13 @@ class GenOptimizationPipeline(OptimizationPipeline):
 
     def step(self, current_iter, total_iter):
         self.log_and_print(f'Starting step {self.batch_id}')
+        
+        generated = False
+        
         if len(self.dataset.records) == 0:
             self.log_and_print('Dataset is empty generating initial samples')
             self.generate_initial_samples()
+            generated = True
         if self.config.use_wandb:
             cur_batch = self.dataset.get_leq(self.batch_id)
             random_subset = cur_batch.sample(n=min(10, len(cur_batch)))[['text']]
@@ -87,7 +92,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
                 {"Prompt": f"<p>{self.cur_prompt}</p>", "Samples": random_subset},
                 step=self.batch_id)
         # 只在 batch_id > 0 時才執行 annotator
-        if self.batch_id > 0:
+        if self.batch_id > 0 or generated:
             logging.info(f'Running annotator on new samples for batch_id: {self.batch_id}')
             self.annotator.cur_instruct = self.cur_prompt
             records = self.annotator.apply(self.dataset, self.batch_id)

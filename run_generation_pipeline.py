@@ -32,13 +32,13 @@ def process_dataset(config_params, output_dir, filename,type = 'ranker',):
             'batch_id': 0
         }
         if type == 'ranker':
-            df['text'] = df.apply(lambda row: f"Question:{row['text']} , Answer:{row['answer']}", axis=1)
-            df['text'] = (df['text'] if 'text' in df.columns else '')
+            # df['text'] = df.apply(lambda row: f"Question:{row['text']} , Answer:{row['answer']}", axis=1)
+            df['answer'] = (df['answer'] if 'answer' in df.columns else '')
             df['annotation'] = (df['label'] if 'label' in df.columns else pd.NA)
         elif type == 'generator':
             df['text'] = (df['text'] if 'text' in df.columns else '')
             # 在生成型任務中，annotation設為期望的最低品質分數
-            df['annotation'] = '4'  # 期望分數至少為4
+            df['annotation'] = '3'  # 期望分數至少為4
         for col, default in required_cols.items():
             if col not in df.columns:
                 if callable(default):
@@ -67,10 +67,10 @@ parser.add_argument('--generation_config_path', default='config/config_diff/conf
 parser.add_argument('--ranker_config_path', default='config/config_diff/config_ranking.yml', type=str, help='Configuration file path')
 
 parser.add_argument('--ranker_task_description',
-                    default='你是一個評分者，你必須依據輸入的問題和答案，依照回答的簡潔和具體程度，最多10字，給出1-5分的分數',
+                    default='你是一個評分者，你必須依據輸入的內容，依照回答的簡潔和具體程度，以及最多10字的規則，給出1-5分的分數',
                     required=False, type=str, help='Describing the task')
 parser.add_argument('--ranker_prompt',
-                    default='你是一個評分者，你必須依據輸入的問題和答案，依照回答的簡潔和具體程度，最多10字，給出1-5分的分數',
+                    default='你是一個評分者，你必須依據輸入的內容，依照回答的簡潔和具體程度，以及最多10字的規則，給出1-5分的分數',
                     required=False, type=str, help='Prompt to use as initial.')
 
 parser.add_argument('--task_description',
