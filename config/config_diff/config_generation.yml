@@ -1,10 +1,5 @@
 annotator:
-    method : 'argilla'
-    config:
-        api_url: 'https://us3r-070-argilla.hf.space'
-        api_key: 'admin.apikey'
-        workspace: 'admin'
-        time_interval: 5
+    method: ''
 
 dataset:
     records_path: 'dataset/generation_dataset.csv'
@@ -21,7 +16,7 @@ predictor:
         llm:
             type: 'OpenAI'
             name: 'gpt-4o-mini' #'gpt-3.5-turbo-1106'
-            temperature: 0.7
+            temperature: 1.0
         num_workers: 7
 
 meta_prompts:
