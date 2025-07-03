@@ -16,10 +16,15 @@ class ResOptimizationPipeline(OptimizationPipeline):
         self.few_shot_selector = few_shot_selector
 
     def step(self, current_iter, total_iter):
+        
+        generated = False
+        
         self.log_and_print(f'Starting step {self.batch_id}')
         if len(self.dataset.records) == 0:
             self.log_and_print('Dataset is empty generating initial samples')
             self.generate_initial_samples()
+            generated = True
+        print("self.dataset.records : ",self.dataset.records)
         if self.config.use_wandb:
             cur_batch = self.dataset.get_leq(self.batch_id)
             random_subset = cur_batch.sample(n=min(10, len(cur_batch)))[['text']]
@@ -28,7 +33,7 @@ class ResOptimizationPipeline(OptimizationPipeline):
                 step=self.batch_id)
 
         # 只在 batch_id > 0 時才執行 annotator
-        if self.batch_id > 0:
+        if self.batch_id > 0 or generated:
             logging.info(f'Running annotator on new samples for batch_id: {self.batch_id}')
             self.annotator.cur_instruct = self.cur_prompt
             records = self.annotator.apply(self.dataset, self.batch_id)
@@ -64,6 +69,8 @@ class ResOptimizationPipeline(OptimizationPipeline):
         records = self.predictor.apply(self.dataset, self.batch_id, leq=True)
         self.dataset.update(records)
 
+        print("self.dataset.records : ",self.dataset.records['prediction'])
+
         self.eval.dataset = self.dataset.get_leq(self.batch_id)
         self.eval.eval_score()
         logging.info('Calculating Score')
@@ -78,18 +85,22 @@ class ResOptimizationPipeline(OptimizationPipeline):
         for i, row in testdata.iterrows():
             # few-shot prompt 已經在 raw_prompt
             user_input = row['text']
-            prompt = f"{raw_prompt}\n\n用戶訊息：{user_input}"
+            prompt = f"{raw_prompt}\n\n {user_input}"
             response = llm.invoke(prompt)  # 直接傳 str
             # 只抓 True/False
             if isinstance(response, dict) and 'text' in response:
                 resp_text = response['text']
             else:
                 resp_text = str(response)
-            match = re.search(r'(True|False)', resp_text, re.IGNORECASE)
+            # 只抓 self.config.dataset.label_schema 的 label
+            label_schema = self.config.dataset.label_schema
+            pattern = r'(' + '|'.join(re.escape(label) for label in label_schema) + r')'
+            match = re.search(pattern, resp_text, re.IGNORECASE)
             label = match.group(1) if match else ''
             raw_predictions.append(label)
         testdata = testdata.copy()
         testdata['prediction'] = raw_predictions
+        print("testdata['prediction'] : ",testdata['prediction'])
         score = (testdata['prediction'].astype(str).str.lower() == testdata['annotation'].astype(str).str.lower()).mean()
         # 記錄到 history
         self.eval.history.append({

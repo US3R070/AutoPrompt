@@ -37,7 +37,7 @@ def main():
                        help='輸出目錄')
     parser.add_argument('--load_path', type=str, default='',
                        help='加載檢查點路徑')
-    parser.add_argument('--enable_few_shot', action='store_true', default=True,
+    parser.add_argument('--enable_few_shot', action='store_true', default=False,
                        help='是否啟用 few-shot 評估')
     parser.add_argument('--num_shots', type=int, default=2,
                        help='Few-shot 的範例數量')
@@ -55,8 +55,12 @@ def main():
         print(f"Few-shot 啟用: {args.num_shots} shots")
 
     # 在創建優化管道之前，確保數據集包含必要欄位
-    dataset_path = Path(config.dataset.records_path)
-    if dataset_path.is_file():
+    dataset_path = None
+    if config.dataset.records_path is not None:
+        dataset_path = Path(config.dataset.records_path)
+    
+    df = None  # 初始化 df 變數
+    if dataset_path is not None and dataset_path.is_file():
         df = pd.read_csv(dataset_path)
         modified = False
         required_cols = {
@@ -90,6 +94,8 @@ def main():
             config.dataset.records_path = str(processed_path)
             config.dataset.initial_dataset = str(processed_path)
             print(f"自動添加缺失欄位並寫入: {processed_path}")
+    else:
+        print("沒有初始數據集，將從空白開始")
 
     # 初始化 Reasoner
     # llm = get_llm(config.reasoner.config.llm)
@@ -98,7 +104,7 @@ def main():
 
     # 初始化 Few-shot Selector
     few_shot_selector = None
-    if args.enable_few_shot:
+    if args.enable_few_shot and df is not None:
         # 只用有正確答案的資料
         examples_pool = df[df['answer'].notna() & (df['answer'] != '')].copy()
         if len(examples_pool) >= args.num_shots:
@@ -111,6 +117,8 @@ def main():
             print(f"Few-shot 範例池包含 {len(examples_pool)} 個樣本")
         else:
             print(f"警告: 範例池樣本數 ({len(examples_pool)}) 少於所需的 shot 數 ({args.num_shots})，停用 few-shot")
+    elif args.enable_few_shot and df is None:
+        print("警告: 沒有初始數據集，無法啟用 few-shot")
 
     pipeline = ResOptimizationPipeline(
         config=config,
@@ -123,26 +131,45 @@ def main():
     )
 
     print("[初始化] 先對現有資料集做一次 LLM 預測...")
-    # 只對 is_synthetic=True 的資料做預測與 annotation
-    synthetic_mask = pipeline.dataset.records['is_synthetic'] == True
-    if synthetic_mask.any():
-        pipeline.predictor.cur_instruct = pipeline.cur_prompt
-        records = pipeline.predictor.apply(pipeline.dataset.records[synthetic_mask], pipeline.batch_id, leq=True)
-        pipeline.dataset.records.loc[synthetic_mask, ['prediction']] = records['prediction'].values
-        # 只對合成資料做 annotation（如果 annotation 欄位為空才補）
-        missing_anno = pipeline.dataset.records.loc[synthetic_mask, 'annotation'].isna() | (pipeline.dataset.records.loc[synthetic_mask, 'annotation'] == '')
-        if missing_anno.any():
-            # 這裡可根據你的 annotation 流程補上 LLM annotation
-            # pipeline.dataset.records.loc[synthetic_mask & missing_anno, 'annotation'] = ...
-            pass  # 你可以在這裡插入自動標註邏輯
-    batch_df = pipeline.dataset.get_leq(pipeline.batch_id)
-    print("[初始化預測結果]")
-    print(batch_df[['id', 'text', 'prediction', 'annotation']].head(10).to_string(index=False))
+    # 只在有初始資料時才進行預測
+    if len(pipeline.dataset.records) > 0:
+        # 只對 is_synthetic=True 的資料做預測與 annotation
+        synthetic_mask = pipeline.dataset.records['is_synthetic'] == True
+        if synthetic_mask.any():
+            pipeline.predictor.cur_instruct = pipeline.cur_prompt
+            records = pipeline.predictor.apply(pipeline.dataset.records[synthetic_mask], pipeline.batch_id, leq=True)
+            pipeline.dataset.records.loc[synthetic_mask, ['prediction']] = records['prediction'].values
+            # 只對合成資料做 annotation（如果 annotation 欄位為空才補）
+            missing_anno = pipeline.dataset.records.loc[synthetic_mask, 'annotation'].isna() | (pipeline.dataset.records.loc[synthetic_mask, 'annotation'] == '')
+            if missing_anno.any():
+                # 這裡可根據你的 annotation 流程補上 LLM annotation
+                # pipeline.dataset.records.loc[synthetic_mask & missing_anno, 'annotation'] = ...
+                pass  # 你可以在這裡插入自動標註邏輯
+        batch_df = pipeline.dataset.get_leq(pipeline.batch_id)
+        print("[初始化預測結果]")
+        print(batch_df[['id', 'text', 'prediction', 'annotation']].head(10).to_string(index=False))
+    else:
+        print("沒有初始資料，跳過初始化預測")
 
-    processed_dataset_path = config.dataset.records_path
-    current_df = pipeline.dataset.records
-    current_df.to_csv(processed_dataset_path, index=False, quoting=csv.QUOTE_NONNUMERIC)
-    print(f"已將初始化預測結果寫回 {processed_dataset_path}")
+    # 確保有輸出路徑保存數據集
+    if config.dataset.records_path is None:
+        # 創建輸出目錄並設置數據集路徑
+        processed_dir = Path(args.output_dump)
+        processed_dir.mkdir(parents=True, exist_ok=True)
+        processed_dataset_path = processed_dir / 'classification_dataset_processed.csv'
+        config.dataset.records_path = str(processed_dataset_path)
+        config.dataset.initial_dataset = str(processed_dataset_path)
+        print(f"設置數據集輸出路徑: {processed_dataset_path}")
+    else:
+        processed_dataset_path = config.dataset.records_path
+    
+    # 只在有資料時才保存
+    if len(pipeline.dataset.records) > 0:
+        current_df = pipeline.dataset.records
+        current_df.to_csv(processed_dataset_path, index=False, quoting=csv.QUOTE_NONNUMERIC)
+        print(f"已將初始化預測結果寫回 {processed_dataset_path}")
+    else:
+        print("沒有資料需要保存到初始化階段")
     
     print("開始運行AutoPrompt優化管道...")
     pipeline.run_pipeline(args.num_steps)
