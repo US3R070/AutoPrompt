@@ -31,4 +31,5 @@ meta_prompts:
 eval:
     function_name: 'ranking'
     error_threshold: 4
+    num_large_errors: 3
 

@@ -49,9 +49,9 @@ class Eval:
         self.dataset = self.dataset[(self.dataset['prediction'] != 'Discarded') &
                                     (self.dataset['annotation'] != 'Discarded')]
         self.dataset = self.score_func(self.dataset)
-        print("self.dataset['score'] : ",self.dataset['score'])
+        # print("self.dataset['score'] : ",self.dataset['score'])
         self.mean_score = self.dataset['score'].mean()
-        print("self.mean_score : ",self.mean_score)
+        # print("self.mean_score : ",self.mean_score)
         return self.mean_score
 
     def get_max_score(self, warmup=0):
@@ -73,7 +73,7 @@ class Eval:
         """
         required_columns = ['annotation', 'text', 'score', 'prediction']
         label_schema = error_df['annotation'].unique()
-        if self.score_function_name == 'ranker':
+        if self.score_function_name == 'ranking':
             gt_name = 'Rank:'
         else:
             gt_name = 'GT:'

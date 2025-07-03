@@ -37,7 +37,8 @@ def process_dataset(config_params, output_dir, filename,type = 'ranker',):
             df['annotation'] = (df['label'] if 'label' in df.columns else pd.NA)
         elif type == 'generator':
             df['text'] = (df['text'] if 'text' in df.columns else '')
-            # df['annotation'] = (df['answer'] if 'answer' in df.columns else '')
+            # 在生成型任務中，annotation設為期望的最低品質分數
+            df['annotation'] = '4'  # 期望分數至少為4
         for col, default in required_cols.items():
             if col not in df.columns:
                 if callable(default):
