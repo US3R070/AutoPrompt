@@ -8,6 +8,8 @@ import csv
 from pathlib import Path
 import numpy as np
 from generation_pipeline import GenOptimizationPipeline
+from ranker_pipeline import RnkOptimizationPipeline
+
 
 def process_dataset(config_params, output_dir, filename,type = 'ranker',):
     dataset_path = Path(config_params.dataset.records_path)
@@ -32,13 +34,13 @@ def process_dataset(config_params, output_dir, filename,type = 'ranker',):
             'batch_id': 0
         }
         if type == 'ranker':
-            # df['text'] = df.apply(lambda row: f"Question:{row['text']} , Answer:{row['answer']}", axis=1)
-            df['answer'] = (df['answer'] if 'answer' in df.columns else '')
+            df['text'] = df.apply(lambda row: f"User input:{row['text']} , Model prediction:{row['answer']}", axis=1)
+            # df['text'] = (df['answer'] if 'answer' in df.columns else '')
             df['annotation'] = (df['label'] if 'label' in df.columns else pd.NA)
         elif type == 'generator':
             df['text'] = (df['text'] if 'text' in df.columns else '')
-            # 在生成型任務中，annotation設為期望的最低品質分數
-            df['annotation'] = '3'  # 期望分數至少為4
+            df['score'] = (df['label'] if 'label' in df.columns else pd.NA)
+
         for col, default in required_cols.items():
             if col not in df.columns:
                 if callable(default):
@@ -67,22 +69,22 @@ parser.add_argument('--generation_config_path', default='config/config_diff/conf
 parser.add_argument('--ranker_config_path', default='config/config_diff/config_ranking.yml', type=str, help='Configuration file path')
 
 parser.add_argument('--ranker_task_description',
-                    default='你是一個評分者，你必須依據輸入的內容，依照回答的簡潔和具體程度，以及最多10字的規則，給出1-5分的分數',
+                    default='你是一個評分者，你必須僅依照model prediction的簡潔程度，越簡潔越高分，給出1-5分的分數，越簡潔分數越高，超過10字或是向用戶索要額外資訊的規則則直接給1分',
                     required=False, type=str, help='Describing the task')
 parser.add_argument('--ranker_prompt',
-                    default='你是一個評分者，你必須依據輸入的內容，依照回答的簡潔和具體程度，以及最多10字的規則，給出1-5分的分數',
+                    default='你是一個評分者，你必須僅依照model prediction的簡潔程度，越簡潔越高分，給出1-5分的分數，越簡潔分數越高，超過10字或是向用戶索要額外資訊的規則則直接給1分',
                     required=False, type=str, help='Prompt to use as initial.')
 
 parser.add_argument('--task_description',
-                    default='你是一個回答者，你必須用繁體中文對應輸入，產出一個具體的、最多10字的回答',
+                    default='你是一個回答者，你必須用繁體中文對應輸入，產出一個具體的、最多10字的回答，請勿提供任何建議或額外思考方向',
                     required=False, type=str, help='Describing the task')
 parser.add_argument('--prompt',
-                    default='你是一個回答者，你必須對輸入來產出一個最多10字的回答|--輸入 : 你口袋裡有多少錢--輸出 : 62塊錢--輸入 : 你怎麼不去問問神奇海螺呢?輸出 : 我去問問神奇海螺',
+                    default='你是一個回答者，你必須對輸入來產出一個盡量簡潔且主觀的、最多10字的回答，不知道怎麼回答時，請直接說不知道，不要向用戶索要額外資訊',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
-parser.add_argument('--num_ranker_steps', default=1, type=int, help='Number of iterations')
-parser.add_argument('--num_generation_steps', default=15, type=int, help='Number of iterations')
+parser.add_argument('--num_ranker_steps', default=2, type=int, help='Number of iterations')
+parser.add_argument('--num_generation_steps', default=10, type=int, help='Number of iterations')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
 opt = parser.parse_args()
@@ -104,16 +106,24 @@ else:
 # 處理 ranking 資料集
 process_dataset(ranker_config_params, os.path.join(opt.output_dump, 'ranker'), 'ranking_dataset_processed.csv',type = 'ranker')
 
-ranker_pipeline = GenOptimizationPipeline(ranker_config_params, output_path=os.path.join(opt.output_dump, 'ranker'))
+ranker_pipeline = RnkOptimizationPipeline(ranker_config_params, output_path=os.path.join(opt.output_dump, 'ranker'))
 if opt.load_dump != '':
     ranker_pipeline.load_state(os.path.join(opt.load_dump, 'ranker'))
     ranker_pipeline.predictor.init_chain(ranker_config_params.dataset.label_schema)
 
 if (ranker_pipeline.cur_prompt is None) or (ranker_pipeline.task_description is None):
-    ranker_mod_prompt, ranker_mod_task_desc = modify_input_for_ranker(ranker_config_params, opt.ranker_task_description,
-                                                                      opt.ranker_prompt)
+    # ranker_mod_prompt, ranker_mod_task_desc = modify_input_for_ranker(ranker_config_params, opt.ranker_task_description,
+    #                                                                   opt.ranker_prompt)
+    
+    ranker_mod_prompt, ranker_mod_task_desc = modify_input_for_ranker(ranker_config_params, opt.task_description,
+                                                                    opt.prompt)
+
+    # ranker_pipeline.cur_prompt = opt.ranker_prompt
+    # ranker_pipeline.task_description = opt.ranker_task_description
     ranker_pipeline.cur_prompt = ranker_mod_prompt
     ranker_pipeline.task_description = ranker_mod_task_desc
+    print("ranker_mod_prompt : ",ranker_mod_prompt)
+    print("ranker_mod_task_desc : ",ranker_mod_task_desc)
 
 best_prompt = ranker_pipeline.run_pipeline(opt.num_ranker_steps)
 print("best_prompt for ranker : ",best_prompt)

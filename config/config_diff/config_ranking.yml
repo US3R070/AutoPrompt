@@ -3,10 +3,24 @@ dataset:
     records_path: 'dataset/generation_dataset.csv'
     initial_dataset: 'dataset/generation_dataset.csv'
     label_schema: ["1","2","3","4","5"]
-    max_samples: 20
+    max_samples: 10
     semantic_sampling: False # Change to True in case you don't have M1. Currently there is an issue with faiss and M1
 
+llm:
+    name: 'gpt-4o-mini' # This is the meta-prompt LLM, it should be a strong model. For example, using GPT-3.5 will cause an error in many cases.
+    type: 'OpenAI' # Can be OpenAI, Anthropic, Google, Azure
+    temperature: 0.8
 
+meta_prompts:
+    folder: 'prompts/meta_prompts_classification'
+    num_err_prompt: 2
+    num_err_samples: 5
+    history_length: 3
+    num_generated_samples: 10
+    num_initialize_samples: 15
+    samples_generation_batch: 3
+    num_workers: 3
+    warmup: 3
 
 meta_prompts:
     folder: 'prompts/meta_prompts_ranking'

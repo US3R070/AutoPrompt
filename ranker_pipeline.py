@@ -2,7 +2,7 @@ from optimization_pipeline import OptimizationPipeline
 import logging
 import json
 
-class GenOptimizationPipeline(OptimizationPipeline):
+class RnkOptimizationPipeline(OptimizationPipeline):
     def run_step_prompt(self):
         # 產生新一輪的 prompt 與合成資料
         last_history = [self.eval.history[-1]] if self.eval.history else []
@@ -102,16 +102,14 @@ class GenOptimizationPipeline(OptimizationPipeline):
         self.predictor.cur_instruct = self.cur_prompt
         logging.info('Running Predictor')
         records = self.predictor.apply(self.dataset, self.batch_id, leq=True)
-        
         self.dataset.update(records)
         
+        
         self.eval.dataset = self.dataset.get_leq(self.batch_id)
-        # if self.batch_id > 0 or generated:
-        #     self.eval.eval_score()
         self.eval.eval_score()
         logging.info('Calculating Score')
         large_errors = self.eval.extract_errors()
-        # print("large_errors : ",large_errors)
+        print("large_errors : ",large_errors)
         # print("text : ",self.dataset.records['text'], " annotation : ",self.dataset.records['annotation'], " model_predicts : ",self.dataset.records['prediction'], " score : ",self.dataset.records['score'])
         
         self.eval.add_history(self.cur_prompt, self.task_description)
