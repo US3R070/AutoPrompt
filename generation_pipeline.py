@@ -3,6 +3,18 @@ import logging
 import json
 
 class GenOptimizationPipeline(OptimizationPipeline):
+    def get_few_shot_examples(self, max_examples=5):
+        # 只取 label==5 的 few-shot 範例
+        if 'label' not in self.dataset.records.columns or 'text' not in self.dataset.records.columns or 'answer' not in self.dataset.records.columns:
+            return ''
+        few_shot_df = self.dataset.records[self.dataset.records['label'] == 5]
+        few_shot_df = few_shot_df.drop_duplicates(subset=['text', 'answer'])
+        few_shot_df = few_shot_df.head(max_examples)
+        examples = []
+        for _, row in few_shot_df.iterrows():
+            examples.append(f"範例：\n輸入：{row['text']}\n輸出：{row['answer']}")
+        return "\n".join(examples)
+
     def run_step_prompt(self):
         # 產生新一輪的 prompt 與合成資料
         last_history = [self.eval.history[-1]] if self.eval.history else []
@@ -33,7 +45,10 @@ class GenOptimizationPipeline(OptimizationPipeline):
             analysis_result = self.meta_chain.error_analysis.invoke(prompt_input_analysis)
             analysis = analysis_result['text'] if isinstance(analysis_result, dict) and 'text' in analysis_result else str(analysis_result)
         error_analysis = analysis or (last_history[-1].get('analysis', '') if last_history else '')
+        # 新增 few-shot block
+        few_shot_block = self.get_few_shot_examples(max_examples=5)
         prompt_input = {
+            "few_shot": few_shot_block,
             "history": history_prompt.replace('\n', '').replace('#', ''),
             "task_description": self.task_description,
             "prompt": self.cur_prompt,
