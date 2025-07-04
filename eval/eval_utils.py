@@ -16,9 +16,12 @@ def set_ranking_function(params):
     def wrapper(dataset):
         generation_dataset = dataset.copy()
         generation_dataset['text'] = '###User input:\n' + generation_dataset['text'] + '\n####model prediction:\n' + generation_dataset['prediction']
-        print("generation_dataset['text'] : ",generation_dataset['text'])
+        for index, row in generation_dataset.iterrows():
+            generation_dataset.at[index, 'text'] = '###User input:\n' + row['text'] + '\n####model prediction:\n' + row['prediction']
+        
         generation_dataset = evaluator.apply_dataframe(generation_dataset)
         generation_dataset.score = generation_dataset.score.astype(int)
         dataset.score = generation_dataset.score
+        dataset.annotation = generation_dataset.score
         return dataset
     return wrapper
