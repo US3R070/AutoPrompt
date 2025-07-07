@@ -76,7 +76,7 @@ class Eval:
         if self.score_function_name == 'ranking':
             gt_name = 'Rank:'
         else:
-            gt_name = 'GT:'
+            gt_name = 'GT'
         error_res_df_list = []
         txt_res = ''
         for label in label_schema:

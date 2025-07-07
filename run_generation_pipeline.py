@@ -34,7 +34,7 @@ def process_dataset(config_params, output_dir, filename,type = 'ranker',):
             'batch_id': 0
         }
         if type == 'ranker':
-            df['text'] = df.apply(lambda row: f"User input:{row['text']} , Model prediction:{row['answer']}", axis=1)
+            df['text'] = df.apply(lambda row: f"###User input:\n{row['text']}\n####model prediction:\n{row['answer']}", axis=1)
             # df['text'] = (df['answer'] if 'answer' in df.columns else '')
             df['annotation'] = (df['label'] if 'label' in df.columns else pd.NA)
         elif type == 'generator':
@@ -76,14 +76,14 @@ parser.add_argument('--ranker_config_path', default='config/config_diff/config_r
 #                     required=False, type=str, help='Prompt to use as initial.')
 
 parser.add_argument('--task_description',
-                    default='你是一個回答者，你必須用繁體中文對應輸入，產出一個具體的、最多10字的回答，請勿提供任何建議或額外思考方向，不知道怎麼回答時，請直接說不知道',
+                    default='你是一個回答者，你必須用繁體中文對應輸入，產出一個具體的、最多10字的回答，請勿提供任何建議或額外思考方向，不知道怎麼回答時，可以說不知道',
                     required=False, type=str, help='Describing the task')
 parser.add_argument('--prompt',
-                    default='你是一個回答者，你必須對輸入用繁體中文產出一個盡量簡潔且主觀的、最多10字的回答，不知道怎麼回答時，請直接說不知道，不要向用戶索要額外資訊',
+                    default='你是一個回答者，你必須對輸入用繁體中文產出一個盡量簡潔且主觀具體的、最多10字的回答，不要向用戶索要額外資訊，不知道也算一種合理回答\nNO_THINK',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
-parser.add_argument('--num_ranker_steps', default=30, type=int, help='Number of iterations')
+parser.add_argument('--num_ranker_steps', default=15, type=int, help='Number of iterations')
 parser.add_argument('--num_generation_steps', default=10, type=int, help='Number of iterations')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
