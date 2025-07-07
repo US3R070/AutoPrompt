@@ -79,3 +79,5 @@ stop_criteria:
     max_usage: 5
     patience: 7
     min_delta: 0.02 
+
+few_shot_examples: 5

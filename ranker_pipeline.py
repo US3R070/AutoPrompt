@@ -40,14 +40,17 @@ class RnkOptimizationPipeline(OptimizationPipeline):
             "labels": labels,
             "error_analysis": error_analysis
         }
-        print("prompt_input : ",prompt_input)
+        # print("prompt_input : ",prompt_input)
         prompt_suggestion = self.meta_chain.step_prompt_chain.invoke(prompt_input)
         self.log_and_print(f'Get new prompt:\n{prompt_suggestion["prompt"]}')
+        self.cur_prompt = prompt_suggestion['prompt'] + '\n' + '用User Input做為參考，但僅針對於Model Prediction的部分評分'
+        # print("after batch_id : ",self.batch_id," self.cur_prompt : ",self.cur_prompt)
+
         self.batch_id += 1
         if len(self.dataset) < self.config.dataset.max_samples:
             batch_input = {
                 "num_samples": self.config.meta_prompts.samples_generation_batch,
-                "task_description": self.task_description+"\n\n"+"務必用繁體中文生成問題",
+                "task_description": self.task_description+"\n\n"+"務必用繁體中文生成",
                 "prompt": prompt_suggestion['prompt']
             }
             batch_inputs = self.generate_samples_batch(
@@ -74,7 +77,6 @@ class RnkOptimizationPipeline(OptimizationPipeline):
             # new_samples = [f"請用中文生成：{sample}" for sample in new_samples]
             new_samples = self.dataset.remove_duplicates(new_samples)
             self.dataset.add(new_samples, self.batch_id)
-            self.cur_prompt = prompt_suggestion['prompt']
 
     def step(self, current_iter, total_iter):
         self.log_and_print(f'Starting step {self.batch_id}')
@@ -101,16 +103,15 @@ class RnkOptimizationPipeline(OptimizationPipeline):
             logging.info('Skipping annotator for initial dataset (batch_id=0).')
         self.predictor.cur_instruct = self.cur_prompt
         logging.info('Running Predictor')
+        # print("now batch_id : ",self.batch_id," self.cur_prompt : ",self.cur_prompt)
         records = self.predictor.apply(self.dataset, self.batch_id, leq=True)
         self.dataset.update(records)
-        
         
         self.eval.dataset = self.dataset.get_leq(self.batch_id)
         self.eval.eval_score()
         logging.info('Calculating Score')
         large_errors = self.eval.extract_errors()
-        print("large_errors : ",large_errors)
-        # print("text : ",self.dataset.records['text'], " annotation : ",self.dataset.records['annotation'], " model_predicts : ",self.dataset.records['prediction'], " score : ",self.dataset.records['score'])
+        # print("large_errors : ",large_errors)
         
         self.eval.add_history(self.cur_prompt, self.task_description)
         if self.config.use_wandb:
