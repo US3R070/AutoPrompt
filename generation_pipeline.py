@@ -10,9 +10,9 @@ class GenOptimizationPipeline(OptimizationPipeline):
         few_shot_df = self.dataset.records[self.dataset.records['label'] == 5]
         few_shot_df = few_shot_df.drop_duplicates(subset=['text', 'answer'])
         few_shot_df = few_shot_df.head(max_examples)
-        examples = []
+        examples = ["範例："]
         for _, row in few_shot_df.iterrows():
-            examples.append(f"範例：\n輸入：{row['text']}\n輸出：{row['answer']}")
+            examples.append(f"\n###User input:\n{row['text']}\n###Model prediction:\n{row['answer']}")
         return "\n".join(examples)
 
     def run_step_prompt(self):

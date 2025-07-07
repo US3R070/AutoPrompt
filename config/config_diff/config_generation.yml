@@ -2,8 +2,8 @@ annotator:
     method: ''
 
 dataset:
-    records_path: 'dataset/generation_dataset.csv'
-    initial_dataset: 'dataset/generation_dataset.csv'
+    records_path: 'dataset/generation_dataset_copy.csv'
+    initial_dataset: 'dataset/generation_dataset_copy.csv'
     # label_schema: ["1","2","3","4","5"]
     max_samples: 20
     semantic_sampling: False
