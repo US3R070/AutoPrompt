@@ -46,9 +46,8 @@ class GenOptimizationPipeline(OptimizationPipeline):
             analysis = analysis_result['text'] if isinstance(analysis_result, dict) and 'text' in analysis_result else str(analysis_result)
         error_analysis = analysis or (last_history[-1].get('analysis', '') if last_history else '')
         # 新增 few-shot block
-        few_shot_block = self.get_few_shot_examples(max_examples=5)
+        few_shot_block = self.get_few_shot_examples(max_examples=self.config.few_shot_examples)
         prompt_input = {
-            "few_shot": few_shot_block,
             "history": history_prompt.replace('\n', '').replace('#', ''),
             "task_description": self.task_description,
             "prompt": self.cur_prompt,
@@ -57,7 +56,9 @@ class GenOptimizationPipeline(OptimizationPipeline):
         }
         print("prompt_input : ",prompt_input)
         prompt_suggestion = self.meta_chain.step_prompt_chain.invoke(prompt_input)
+        prompt_suggestion['prompt'] = prompt_suggestion['prompt'] + "\n\n" + few_shot_block
         self.log_and_print(f'Get new prompt:\n{prompt_suggestion["prompt"]}')
+        self.cur_prompt = prompt_suggestion['prompt']
         self.batch_id += 1
         if len(self.dataset) < self.config.dataset.max_samples:
             batch_input = {
@@ -89,7 +90,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
             # new_samples = [f"請用中文生成：{sample}" for sample in new_samples]
             new_samples = self.dataset.remove_duplicates(new_samples)
             self.dataset.add(new_samples, self.batch_id)
-            self.cur_prompt = prompt_suggestion['prompt']
+
 
     def step(self, current_iter, total_iter):
         self.log_and_print(f'Starting step {self.batch_id}')

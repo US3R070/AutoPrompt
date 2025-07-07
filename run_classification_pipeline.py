@@ -37,10 +37,6 @@ def main():
                        help='輸出目錄')
     parser.add_argument('--load_path', type=str, default='',
                        help='加載檢查點路徑')
-    parser.add_argument('--enable_few_shot', action='store_true', default=False,
-                       help='是否啟用 few-shot 評估')
-    parser.add_argument('--num_shots', type=int, default=2,
-                       help='Few-shot 的範例數量')
     args = parser.parse_args()
 
     # 加載配置
@@ -51,8 +47,8 @@ def main():
     print(f"任務描述: {args.task_description}")
     print(f"優化步驟數: {args.num_steps}")
     print(f"輸出目錄: {args.output_dump}")
-    if args.enable_few_shot == True:
-        print(f"Few-shot 啟用: {args.num_shots} shots")
+    if config.few_shot_examples > 0:
+        print(f"Few-shot 啟用: {config.few_shot_examples} shots")
 
     # 在創建優化管道之前，確保數據集包含必要欄位
     dataset_path = None
@@ -104,20 +100,20 @@ def main():
 
     # 初始化 Few-shot Selector
     few_shot_selector = None
-    if args.enable_few_shot and df is not None:
+    if config.few_shot_examples > 0 and df is not None:
         # 只用有正確答案的資料
         examples_pool = df[df['answer'].notna() & (df['answer'] != '')].copy()
-        if len(examples_pool) >= args.num_shots:
+        if len(examples_pool) >= config.few_shot_examples:
             few_shot_selector = FewShotSelector(
                 enable_few_shot=True,
-                num_shots=args.num_shots,
+                num_shots=config.few_shot_examples,
                 examples_pool=examples_pool,
                 output_dir=args.output_dump
             )
             print(f"Few-shot 範例池包含 {len(examples_pool)} 個樣本")
         else:
-            print(f"警告: 範例池樣本數 ({len(examples_pool)}) 少於所需的 shot 數 ({args.num_shots})，停用 few-shot")
-    elif args.enable_few_shot and df is None:
+            print(f"警告: 範例池樣本數 ({len(examples_pool)}) 少於所需的 shot 數 ({config.few_shot_examples})，停用 few-shot")
+    elif config.few_shot_examples > 0 and df is None:
         print("警告: 沒有初始數據集，無法啟用 few-shot")
 
     pipeline = ResOptimizationPipeline(

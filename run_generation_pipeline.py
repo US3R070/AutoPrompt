@@ -68,22 +68,22 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--generation_config_path', default='config/config_diff/config_generation.yml', type=str, help='Configuration file path')
 parser.add_argument('--ranker_config_path', default='config/config_diff/config_ranking.yml', type=str, help='Configuration file path')
 
-parser.add_argument('--ranker_task_description',
-                    default='你是一個評分者，你必須僅依照model prediction的簡潔程度，越簡潔越高分，給出1-5分的分數，越簡潔分數越高，超過10字或是向用戶索要額外資訊的規則則直接給1分',
-                    required=False, type=str, help='Describing the task')
-parser.add_argument('--ranker_prompt',
-                    default='你是一個評分者，你必須僅依照model prediction的簡潔程度，越簡潔越高分，給出1-5分的分數，越簡潔分數越高，超過10字或是向用戶索要額外資訊的規則則直接給1分',
-                    required=False, type=str, help='Prompt to use as initial.')
+# parser.add_argument('--ranker_task_description',
+#                     default='你是一個評分者，你必須僅依照model prediction的簡潔程度，越簡潔越高分，給出1-5分的分數，越簡潔分數越高，超過10字或是向用戶索要額外資訊的規則則直接給1分',
+#                     required=False, type=str, help='Describing the task')
+# parser.add_argument('--ranker_prompt',
+#                     default='你是一個評分者，你必須僅依照model prediction的簡潔程度，越簡潔越高分，給出1-5分的分數，越簡潔分數越高，超過10字或是向用戶索要額外資訊的規則則直接給1分',
+#                     required=False, type=str, help='Prompt to use as initial.')
 
 parser.add_argument('--task_description',
-                    default='你是一個回答者，你必須用繁體中文對應輸入，產出一個具體的、最多10字的回答，請勿提供任何建議或額外思考方向',
+                    default='你是一個回答者，你必須用繁體中文對應輸入，產出一個具體的、最多10字的回答，請勿提供任何建議或額外思考方向，不知道怎麼回答時，請直接說不知道',
                     required=False, type=str, help='Describing the task')
 parser.add_argument('--prompt',
-                    default='你是一個回答者，你必須對輸入來產出一個盡量簡潔且主觀的、最多10字的回答，不知道怎麼回答時，請直接說不知道，不要向用戶索要額外資訊',
+                    default='你是一個回答者，你必須對輸入用繁體中文產出一個盡量簡潔且主觀的、最多10字的回答，不知道怎麼回答時，請直接說不知道，不要向用戶索要額外資訊',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
-parser.add_argument('--num_ranker_steps', default=2, type=int, help='Number of iterations')
+parser.add_argument('--num_ranker_steps', default=30, type=int, help='Number of iterations')
 parser.add_argument('--num_generation_steps', default=10, type=int, help='Number of iterations')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
