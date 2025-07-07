@@ -76,10 +76,10 @@ parser.add_argument('--ranker_config_path', default='config/config_diff/config_r
 #                     required=False, type=str, help='Prompt to use as initial.')
 
 parser.add_argument('--task_description',
-                    default='你是一個回答者，你必須用繁體中文對應輸入，產出一個具體的、最多10字的回答，請勿提供任何建議或額外思考方向，不知道怎麼回答時，可以說不知道',
+                    default='你是一個回答者，你必須用繁體中文對應輸入，產出一個具體的、最多10字的回答，請勿提供任何建議或額外思考方向',
                     required=False, type=str, help='Describing the task')
 parser.add_argument('--prompt',
-                    default='你是一個回答者，你必須對輸入用繁體中文產出一個盡量簡潔且主觀具體的、最多10字的回答，不要向用戶索要額外資訊，不知道也算一種合理回答\nNO_THINK',
+                    default='你是一個回答者，你必須對輸入用繁體中文產出一個盡量簡潔且主觀具體的、最多10字的回答，不要向用戶索要額外資訊\nNO_THINK',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
