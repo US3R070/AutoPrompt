@@ -55,10 +55,16 @@ class GenOptimizationPipeline(OptimizationPipeline):
             "error_analysis": error_analysis
         }
         print("prompt_input : ",prompt_input)
+        
+        # 產生新的提示詞，並加入few shot，假如需要NO_THINK則加入NO_THINK 
         prompt_suggestion = self.meta_chain.step_prompt_chain.invoke(prompt_input)
-        prompt_suggestion['prompt'] = prompt_suggestion['prompt'] + "\n\n" + few_shot_block
-        self.log_and_print(f'Get new prompt:\n{prompt_suggestion["prompt"]}')
-        self.cur_prompt = prompt_suggestion['prompt']
+        if "NO_THINK" in self.cur_prompt:
+            self.cur_prompt = prompt_suggestion['prompt']+"\n\n"+"NO_THINK"
+        else :
+            self.cur_prompt = prompt_suggestion['prompt']
+        self.cur_prompt = self.cur_prompt + "\n\n" + few_shot_block
+        self.log_and_print(f'Get new prompt:\n{self.cur_prompt}')
+        
         self.batch_id += 1
         if len(self.dataset) < self.config.dataset.max_samples:
             batch_input = {
@@ -125,10 +131,14 @@ class GenOptimizationPipeline(OptimizationPipeline):
         # if self.batch_id > 0 or generated:
         #     self.eval.eval_score()
         self.eval.eval_score()
+        for idx, row in self.eval.dataset.iterrows():
+            self.dataset.records.loc[self.dataset.records['id'] == row['id'], 'score'] = row['score']
         logging.info('Calculating Score')
         large_errors = self.eval.extract_errors()
         # print("large_errors : ",large_errors)
         # print("text : ",self.dataset.records['text'], " annotation : ",self.dataset.records['annotation'], " model_predicts : ",self.dataset.records['prediction'], " score : ",self.dataset.records['score'])
+        
+        print("self.dataset.records : ",self.dataset.records)
         
         self.eval.add_history(self.cur_prompt, self.task_description)
         if self.config.use_wandb:
