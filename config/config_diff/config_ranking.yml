@@ -1,7 +1,7 @@
 
 dataset:
-    records_path: 'dataset/generation_dataset_copy.csv'
-    initial_dataset: 'dataset/generation_dataset_copy.csv'
+    records_path: 'dataset/decider.csv'
+    initial_dataset: 'dataset/decider.csv'
     label_schema: ["1","2","3","4","5"]
     max_samples: 10
     semantic_sampling: False # Change to True in case you don't have M1. Currently there is an issue with faiss and M1

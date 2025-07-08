@@ -76,15 +76,26 @@ parser.add_argument('--ranker_config_path', default='config/config_diff/config_r
 #                     required=False, type=str, help='Prompt to use as initial.')
 
 parser.add_argument('--task_description',
-                    default='你是一個回答者，你必須用繁體中文對應輸入，產出一個具體的、最多10字的回答，請勿提供任何建議或額外思考方向',
+                    default='你是一個短句回答者，你有幾個模板回復可以選，選擇一個語意最適合的來回復對方',
                     required=False, type=str, help='Describing the task')
 parser.add_argument('--prompt',
-                    default='你是一個回答者，你必須對輸入用繁體中文產出一個盡量簡潔且主觀具體的、最多10字的回答，不要向用戶索要額外資訊\nNO_THINK',
+                    default=
+                    """你是一個短句回答者，你有幾個模板回復可以選，從模板中的name中選擇一個語意最適合的來回復對方
+                    注意，目的在回復消息，不是重複短句的內容
+                    ---
+                    短句 : 誰會想在凌晨3點吃美味蟹堡
+                    模板 : {"name":"誰會想在凌晨3點吃美味蟹堡","number":"SS0001"}{"name":"你為什麼不問問神奇海螺呢","number":"SS0001"}...
+                    回答 : 2-你為什麼不問問神奇海螺呢
+                    ---
+                    回答選擇2，也就是模板的第2個選項的name(你為什麼不問問神奇海螺呢)，這個選項較可以回復對方的問題
+                    請注意，這個選項的number:"SS0001"並不是數字，而是模板回復的編號，請不要使用這個編號來回復對方
+                    因此並不是找最相近的，而是語義可以對的上的
+                    """,
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
-parser.add_argument('--num_ranker_steps', default=15, type=int, help='Number of iterations')
-parser.add_argument('--num_generation_steps', default=10, type=int, help='Number of iterations')
+parser.add_argument('--num_ranker_steps', default=30, type=int, help='Number of iterations')
+parser.add_argument('--num_generation_steps', default=15, type=int, help='Number of iterations')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
 opt = parser.parse_args()
@@ -104,7 +115,8 @@ else:
     initial_prompt = opt.prompt
     
 # 處理 ranking 資料集
-process_dataset(ranker_config_params, os.path.join(opt.output_dump, 'ranker'), 'ranking_dataset_processed.csv',type = 'ranker')
+if ranker_config_params.dataset.records_path != None:
+    process_dataset(ranker_config_params, os.path.join(opt.output_dump, 'ranker'), 'ranking_dataset_processed.csv',type = 'ranker')
 
 ranker_pipeline = RnkOptimizationPipeline(ranker_config_params, output_path=os.path.join(opt.output_dump, 'ranker'))
 if opt.load_dump != '':
@@ -129,7 +141,8 @@ best_prompt = ranker_pipeline.run_pipeline(opt.num_ranker_steps)
 print("best_prompt for ranker : ",best_prompt)
 
 # 處理 generation 資料集
-process_dataset(generation_config_params, os.path.join(opt.output_dump, 'generator'), 'generation_dataset_processed.csv',type = 'generator')
+if generation_config_params.dataset.records_path != None:
+    process_dataset(generation_config_params, os.path.join(opt.output_dump, 'generator'), 'generation_dataset_processed.csv',type = 'generator')
 
 generation_config_params.eval.function_params = ranker_config_params.predictor.config
 
