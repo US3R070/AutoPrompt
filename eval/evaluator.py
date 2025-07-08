@@ -74,7 +74,7 @@ class Eval:
         required_columns = ['annotation', 'text', 'score', 'prediction']
         label_schema = error_df['annotation'].unique()
         if self.score_function_name == 'ranking':
-            gt_name = 'Rank:'
+            gt_name = 'Rank'
         else:
             gt_name = 'GT'
         error_res_df_list = []
