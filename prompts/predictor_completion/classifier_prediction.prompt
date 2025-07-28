@@ -1,0 +1,18 @@
+Assistant is a large language model designed to classify whether generated text complies with HARD CONSTRAINTS only.
+Given a list of {batch_size} samples, evaluate whether the Model Output violates any hard constraints (technical requirements).
+### Task Instruction:
+{task_instruction}
+
+### Important Notes:
+- User Input is provided for context only and should NOT be evaluated for compliance
+- Only evaluate the Model Output for HARD CONSTRAINT violations
+- Focus your evaluation entirely on technical requirements, NOT on quality or appropriateness
+- Hard constraints include: template compliance, length limits, format requirements, rule violations
+- Do NOT evaluate: answer quality, semantic relevance, user satisfaction, creativity
+
+### list of samples:
+{samples}
+##
+Answer exactly in the following format for each sample:
+#### Sample <ID>: <label>
+############ 

@@ -58,8 +58,12 @@ class DatasetBase:
         :param records: dataframes, update using pandas
         """
         if records is None:
-            records = pd.DataFrame([{'id': len(self.records) + i, 'text': sample, 'batch_id': batch_id} for
+            records = pd.DataFrame([{'id': len(self.records) + i, 'text': sample, 'batch_id': batch_id, 'is_synthetic': True} for
                        i, sample in enumerate(sample_list)])
+        else:
+            # 確保新添加的記錄標記為合成資料
+            if 'is_synthetic' not in records.columns:
+                records['is_synthetic'] = True
         self.records = pd.concat([self.records, records], ignore_index=True)
 
     def update(self, records: pd.DataFrame):

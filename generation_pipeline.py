@@ -3,6 +3,10 @@ import logging
 import json
 
 class GenOptimizationPipeline(OptimizationPipeline):
+    def __init__(self, *args, classifier_eval_config=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.classifier_eval_config = classifier_eval_config
+
     def get_few_shot_examples(self, max_examples=5):
         # 只取 label==5 的 few-shot 範例
         if 'label' not in self.dataset.records.columns or 'text' not in self.dataset.records.columns or 'answer' not in self.dataset.records.columns:
@@ -97,6 +101,78 @@ class GenOptimizationPipeline(OptimizationPipeline):
             new_samples = self.dataset.remove_duplicates(new_samples)
             self.dataset.add(new_samples, self.batch_id)
 
+    def evaluate_with_classifier_and_ranker(self):
+        """使用classifier和ranker進行評估"""
+        from utils.llm_chain import get_llm
+        from estimator.estimator_llm import LLMEstimator
+        import re
+        
+        testdata = self.dataset.get_leq(self.batch_id)
+        
+        # Classifier 評估
+        classifier_scores = []
+        if self.classifier_eval_config:
+            classifier_estimator = LLMEstimator(self.classifier_eval_config)
+            classifier_estimator.init_chain(self.classifier_eval_config.label_schema)
+            
+            # 創建classifier評估用的dataframe，明確分離User Input和Model Output
+            classifier_df = testdata.copy()
+            classifier_df['text'] = classifier_df.apply(lambda row: f"###User input (for context only):\n{row['text']}\n####Model output (evaluate for compliance):\n{row['prediction']}", axis=1)
+            
+            # 使用classifier評估
+            classifier_results = classifier_estimator.apply_dataframe(classifier_df)
+            
+            for i, row in classifier_results.iterrows():
+                classifier_result = row['prediction']
+                # 檢查是否為True/False
+                is_compliant = classifier_result.strip().lower() in ['true', '1', 'yes']
+                classifier_scores.append(1 if is_compliant else 0)
+        else:
+            classifier_scores = [1] * len(testdata)  # 如果沒有classifier配置，預設為通過
+        
+        # Ranker 評估
+        ranker_scores = []
+        ranker_estimator = LLMEstimator(self.eval.function_params)
+        ranker_estimator.init_chain(self.eval.function_params.label_schema)
+        
+        # 創建ranker評估用的dataframe
+        ranker_df = testdata.copy()
+        ranker_df['text'] = ranker_df.apply(lambda row: f"###User input:\n{row['text']}\n####model prediction:\n{row['prediction']}", axis=1)
+        
+        # 使用ranker評估
+        ranker_results = ranker_estimator.apply_dataframe(ranker_df)
+        
+        for i, row in ranker_results.iterrows():
+            ranker_result = row['prediction']
+            # 提取分數
+            try:
+                score = int(ranker_result.strip())
+                score = max(1, min(5, score))  # 確保分數在1-5範圍內
+            except:
+                score = 1  # 預設分數
+            ranker_scores.append(score)
+        
+        # 計算綜合分數：如果classifier不通過，直接給1分；否則使用ranker分數
+        combined_scores = []
+        for i in range(len(testdata)):
+            if classifier_scores[i] == 0:  # 不符合硬性規定
+                combined_scores.append(1)
+            else:
+                combined_scores.append(ranker_scores[i])
+        
+        # 更新dataset的score
+        for i, row in testdata.iterrows():
+            self.dataset.records.loc[self.dataset.records['id'] == row['id'], 'score'] = combined_scores[i-1] if i > 0 else combined_scores[0]
+        
+        # 計算平均分數
+        mean_score = sum(combined_scores) / len(combined_scores)
+        self.eval.mean_score = mean_score
+        
+        print(f"Classifier 通過率: {sum(classifier_scores)/len(classifier_scores):.2f}")
+        print(f"Ranker 平均分數: {sum(ranker_scores)/len(ranker_scores):.2f}")
+        print(f"綜合平均分數: {mean_score:.2f}")
+        
+        return mean_score
 
     def step(self, current_iter, total_iter):
         self.log_and_print(f'Starting step {self.batch_id}')
@@ -128,15 +204,18 @@ class GenOptimizationPipeline(OptimizationPipeline):
         self.dataset.update(records)
         
         self.eval.dataset = self.dataset.get_leq(self.batch_id)
-        # if self.batch_id > 0 or generated:
-        #     self.eval.eval_score()
-        self.eval.eval_score()
-        for idx, row in self.eval.dataset.iterrows():
-            self.dataset.records.loc[self.dataset.records['id'] == row['id'], 'score'] = row['score']
+        
+        # 使用新的評估機制
+        if self.classifier_eval_config:
+            self.evaluate_with_classifier_and_ranker()
+        else:
+            # 如果沒有classifier配置，使用原來的評估方式
+            self.eval.eval_score()
+            for idx, row in self.eval.dataset.iterrows():
+                self.dataset.records.loc[self.dataset.records['id'] == row['id'], 'score'] = row['score']
+        
         logging.info('Calculating Score')
         large_errors = self.eval.extract_errors()
-        # print("large_errors : ",large_errors)
-        # print("text : ",self.dataset.records['text'], " annotation : ",self.dataset.records['annotation'], " model_predicts : ",self.dataset.records['prediction'], " score : ",self.dataset.records['score'])
         
         print("self.dataset.records : ",self.dataset.records)
         
