@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 from generation_pipeline import GenOptimizationPipeline
 from ranker_pipeline import RnkOptimizationPipeline
-from classification_pipeline import ResOptimizationPipeline
+from single_classify_pipeline import SingleClassifyOptimizationPipeline
 from utils.llm_chain import MetaChain
 
 
@@ -140,10 +140,10 @@ print("=" * 50)
 if classifier_config_params.dataset.records_path != None:
     process_dataset(classifier_config_params, os.path.join(opt.output_dump, 'classifier'), 'classifier_dataset_processed.csv', type='classifier')
 
-# 創建 meta_chain 並傳入 ResOptimizationPipeline
+# 創建 meta_chain 並傳入 SingleClassifyOptimizationPipeline
 meta_chain = MetaChain(classifier_config_params)
 
-classifier_pipeline = ResOptimizationPipeline(classifier_config_params, output_path=os.path.join(opt.output_dump, 'classifier'), meta_chain=meta_chain)
+classifier_pipeline = SingleClassifyOptimizationPipeline(classifier_config_params, output_path=os.path.join(opt.output_dump, 'classifier'), meta_chain=meta_chain)
 if opt.load_dump != '':
     classifier_pipeline.load_state(os.path.join(opt.load_dump, 'classifier'))
     classifier_pipeline.predictor.init_chain(classifier_config_params.dataset.label_schema)

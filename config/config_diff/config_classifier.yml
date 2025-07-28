@@ -25,7 +25,7 @@ predictor:
     config:
         llm:
             type: 'OpenAI'
-            name: 'gpt-4o'
+            name: 'gpt-4o-mini'
             temperature: 0.0
         num_workers: 2
         prompt: 'prompts/predictor_completion/classifier_prediction.prompt'

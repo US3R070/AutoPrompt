@@ -3,18 +3,18 @@ You are given a instructions phrased as text generation task.
 Your task is to write an instruction for a classification task that suppose to evaluate whether a generated sample complies with the given constraints.
 Guidelines:
 1. The classifier labels are {label_schema}. The result instructions should indicate explicitly that the task is a classification class with the following labels {label_schema}!
-2. The generated instruction must focus ONLY on checking HARD CONSTRAINTS (technical requirements) such as:
-   - Whether the answer is from the provided template options
-   - Whether the answer length is within limits
-   - Whether the answer contains inappropriate content
-   - Whether the answer follows basic format requirements
-   - Whether the answer violates any explicit rules
-3. The generated instruction must NOT evaluate:
-   - Answer completeness or quality
-   - Semantic appropriateness or relevance
-   - User satisfaction or preference
-   - Creative aspects or originality
-4. The generated prompt must clearly indicate what constitutes a True (compliant with hard constraints) and False (violates hard constraints) result.
+2. The generated instruction must focus ONLY on checking the HARD CONSTRAINTS that are EXPLICITLY mentioned in the original prompt. Do NOT add any new constraints that are not present in the original prompt.
+3. When analyzing the original prompt, identify ONLY the specific technical requirements that are explicitly stated, such as:
+   - Template compliance requirements (if mentioned)
+   - Length restrictions (if specified)
+   - Content restrictions (if explicitly stated)
+   - Format requirements (if clearly defined)
+   - Specific rule violations (if explicitly prohibited)
+4. DO NOT infer or add additional constraints that are not explicitly mentioned in the original prompt.
+5. The instruction should be a classification task that evaluates whether the Model Output complies with ONLY the constraints that are explicitly present in the original prompt.
+6. The generated instruction must NOT evaluate Answer completeness or quality. 
+7. The generated instruction must also NOT evaluate Semantic appropriateness or relevance.
+
 
 IMPORTANT: The evaluation should focus ONLY on the Model Output, not the User Input. The User Input is provided for context but should not be evaluated for compliance.
 The instruction should clearly separate the evaluation of User Input (for context) and Model Output (for hard constraint checking).
