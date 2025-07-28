@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 import wandb
 import math
+from sklearn.metrics import confusion_matrix
 from optimization_pipeline import OptimizationPipeline
 from dataset.base_dataset import DatasetBase
 
@@ -12,7 +13,8 @@ class ResOptimizationPipeline(OptimizationPipeline):
     def __init__(self, *args, meta_chain=None, few_shot_selector=None, **kwargs):
         super().__init__(*args, **kwargs)
         # self.reasoner = reasoner  # 註解掉 Reasoner
-        self.meta_chain = meta_chain  # 新增 meta_chain
+        if meta_chain is not None:
+            self.meta_chain = meta_chain  # 只有在傳入 meta_chain 時才覆蓋
         self.few_shot_selector = few_shot_selector
 
     def step(self, current_iter, total_iter):
@@ -32,14 +34,25 @@ class ResOptimizationPipeline(OptimizationPipeline):
                 {"Prompt": wandb.Html(f"<p>{self.cur_prompt}</p>"), "Samples": wandb.Table(dataframe=random_subset)},
                 step=self.batch_id)
 
-        # 只在 batch_id > 0 時才執行 annotator
-        if self.batch_id > 0 or generated:
+        # 檢查是否有 ground truth 資料（非合成資料）
+        has_ground_truth = len(self.dataset.records) > 0 and 'is_synthetic' in self.dataset.records.columns
+        ground_truth_count = 0
+        if has_ground_truth:
+            ground_truth_count = len(self.dataset.records[self.dataset.records['is_synthetic'] == False])
+        
+        # 只在以下情況執行 annotator：
+        # 1. batch_id > 0 且沒有 ground truth 資料，或
+        # 2. 有新生成的資料 (generated=True)
+        if (self.batch_id > 0 and ground_truth_count == 0) or generated:
             logging.info(f'Running annotator on new samples for batch_id: {self.batch_id}')
             self.annotator.cur_instruct = self.cur_prompt
             records = self.annotator.apply(self.dataset, self.batch_id)
             self.dataset.update(records)
         else:
-            logging.info('Skipping annotator for initial dataset (batch_id=0).')
+            if ground_truth_count > 0:
+                logging.info(f'Skipping annotator for batch_id: {self.batch_id} - using {ground_truth_count} ground truth samples')
+            else:
+                logging.info('Skipping annotator for initial dataset (batch_id=0).')
 
         # Few-shot 評估（如果啟用）
         if self.few_shot_selector:
@@ -107,7 +120,7 @@ class ResOptimizationPipeline(OptimizationPipeline):
             'prompt': raw_prompt,
             'score': score,
             'errors': testdata[testdata['prediction'].astype(str).str.lower() != testdata['annotation'].astype(str).str.lower()],
-            'confusion_matrix': None,
+            'confusion_matrix': confusion_matrix(testdata['annotation'].astype(str).str.lower(), testdata['prediction'].astype(str).str.lower()),
             'analysis': '[raw prompt 真實評分]'
         })
         print(f"[Raw prompt 真實分數]: {score:.4f}")

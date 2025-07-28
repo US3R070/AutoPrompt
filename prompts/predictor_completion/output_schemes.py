@@ -41,3 +41,21 @@ def prediction_generation_parser(response: dict) -> dict:
     matches = pattern.findall(response['text'])
     predictions = [{'id': int(match[0]), 'prediction': match[1].strip()} for match in matches]
     return {'results': predictions}
+
+def classifier_prediction_parser(response: dict) -> dict:
+    """
+    Parse the response from the classifier prediction LLM chain
+    :param response: The response from the LLM chain
+    :return: The parsed response
+    """
+    text = response.get('text', '')
+    # 使用與prediction_parser相同的格式，但更寬鬆的匹配
+    pattern = re.compile(r'Sample (\d+): (\w+)', re.IGNORECASE)
+    matches = pattern.findall(text)
+    
+    if not matches:
+        print(f"[Warning] Classifier prediction parser failed to find any matches in text:\n{text}")
+        return {'results': []}
+    
+    predictions = [{'id': int(match[0]), 'prediction': match[1].strip()} for match in matches]
+    return {'results': predictions}

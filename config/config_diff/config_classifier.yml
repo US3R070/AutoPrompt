@@ -1,0 +1,58 @@
+dataset:
+    records_path: 'dataset/decider.csv'
+    initial_dataset: 'dataset/decider.csv'
+    label_schema: ["True", "False"]
+    max_samples: 10
+    semantic_sampling: False
+
+llm:
+    name: 'gpt-4o'
+    type: 'OpenAI'
+    temperature: 0.8
+
+meta_prompts:
+    folder: 'prompts/meta_prompts_classification'
+    num_err_prompt: 2
+    num_err_samples: 5
+    history_length: 3
+    num_generated_samples: 10
+    num_initialize_samples: 15
+    samples_generation_batch: 3
+    num_workers: 3
+
+predictor:
+    method: 'llm'
+    config:
+        llm:
+            type: 'OpenAI'
+            name: 'gpt-4o'
+            temperature: 0.0
+        num_workers: 2
+        prompt: 'prompts/predictor_completion/classifier_prediction.prompt'
+        mini_batch_size: 1
+        mode: 'prediction'
+
+annotator:
+    method: 'llm'
+    config:
+        llm:
+            type: 'OpenAI'
+            name: 'gpt-4o'
+            temperature: 1
+        num_workers: 3
+        prompt: 'prompts/predictor_completion/classifier_prediction.prompt'
+        mini_batch_size: 1
+        mode: 'annotation'
+
+eval:
+    function_name: 'accuracy'
+    num_large_errors: 3
+    num_boundary_predictions: 0
+    error_threshold: 0.5
+
+stop_criteria:
+    max_usage: 5
+    patience: 7
+    min_delta: 0.02
+
+use_wandb: False 

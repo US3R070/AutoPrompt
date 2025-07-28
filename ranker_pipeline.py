@@ -44,7 +44,7 @@ class RnkOptimizationPipeline(OptimizationPipeline):
         print("prompt_input : ",prompt_input)
         
         prompt_suggestion = self.meta_chain.step_prompt_chain.invoke(prompt_input)
-        self.cur_prompt = prompt_suggestion['prompt'] + '\n' + 'User Input僅參考不需遵守規定，針對Model Prediction的部分評分'
+        self.cur_prompt = prompt_suggestion['prompt'] + '\n'
         self.log_and_print(f'Get new prompt:\n{self.cur_prompt}')
         # print("after batch_id : ",self.batch_id," self.cur_prompt : ",self.cur_prompt)
 
@@ -113,7 +113,7 @@ class RnkOptimizationPipeline(OptimizationPipeline):
         self.eval.eval_score()
         logging.info('Calculating Score')
         large_errors = self.eval.extract_errors()
-        # print("large_errors : ",large_errors)
+        print("large_errors : ",large_errors)
         
         self.eval.add_history(self.cur_prompt, self.task_description)
         if self.config.use_wandb:

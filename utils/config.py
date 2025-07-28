@@ -146,6 +146,26 @@ def modify_input_for_ranker(config, task_description, initial_prompt):
     return mod_prompt, mod_task_desc
 
 
+def modify_input_for_classifier(config, task_description, initial_prompt):
+    modifiers_config = yaml.safe_load(open('prompts/modifiers/modifiers.yml', 'r'))
+    task_desc_setup = load_prompt(modifiers_config['classifier']['task_desc_mod'])
+    init_prompt_setup = load_prompt(modifiers_config['classifier']['prompt_mod'])
+
+    llm = get_llm(config.llm)
+    task_llm_chain = LLMChain(llm=llm, prompt=task_desc_setup)
+    task_result = task_llm_chain(
+        {"task_description": task_description})
+    mod_task_desc = task_result['text']
+    logging.info(f"Task description modified for classification to: \n{mod_task_desc}")
+
+    prompt_llm_chain = LLMChain(llm=llm, prompt=init_prompt_setup)
+    prompt_result = prompt_llm_chain({"prompt": initial_prompt, 'label_schema': config.dataset.label_schema})
+    mod_prompt = prompt_result['text']
+    logging.info(f"Initial prompt modified for classification to: \n{mod_prompt}")
+
+    return mod_prompt, mod_task_desc
+
+
 def override_config(override_config_file, config_file='config/config_default.yml'):
     """
     Override the default configuration file with the override configuration file
