@@ -159,7 +159,7 @@ def modify_input_for_classifier(config, task_description, initial_prompt):
     logging.info(f"Task description modified for classification to: \n{mod_task_desc}")
 
     prompt_llm_chain = LLMChain(llm=llm, prompt=init_prompt_setup)
-    prompt_result = prompt_llm_chain({"prompt": initial_prompt, 'label_schema': config.dataset.label_schema})
+    prompt_result = prompt_llm_chain({"prompt": initial_prompt, 'task_description': task_description, 'label_schema': config.dataset.label_schema})
     mod_prompt = prompt_result['text']
     logging.info(f"Initial prompt modified for classification to: \n{mod_prompt}")
 
