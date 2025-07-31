@@ -6,13 +6,43 @@ dataset:
     max_samples: 10
     semantic_sampling: False # Change to True in case you don't have M1. Currently there is an issue with faiss and M1
 
+annotator:
+    method: 'llm'
+    config:
+        llm:
+            type: 'OpenAI'
+            name: 'gpt-4o'
+            temperature: 1
+        num_workers: 3
+        prompt: 'prompts/predictor_completion/annotation.prompt'
+        mini_batch_size: 1
+        mode: 'annotation'
+
+predictor:
+    method: 'llm'
+    config:
+        llm:
+            type: 'OpenAI'
+            name: 'gpt-4o-mini'
+            temperature: 0.0
+        num_workers: 2
+        prompt: 'prompts/predictor_completion/prediction.prompt'
+        mini_batch_size: 1
+        mode: 'prediction'
+
+eval:
+    function_name: 'ranking'
+    num_large_errors: 3
+    num_boundary_predictions: 0
+    error_threshold: 3
+
 llm:
     name: 'gpt-4o' # This is the meta-prompt LLM, it should be a strong model. For example, using GPT-3.5 will cause an error in many cases.
     type: 'OpenAI' # Can be OpenAI, Anthropic, Google, Azure
     temperature: 0.8
 
 meta_prompts:
-    folder: 'prompts/meta_prompts_classification'
+    folder: 'prompts/meta_prompts_ranking'
     num_err_prompt: 2
     num_err_samples: 5
     history_length: 3
@@ -22,5 +52,9 @@ meta_prompts:
     num_workers: 3
     # warmup: 3
 
-meta_prompts:
-    folder: 'prompts/meta_prompts_ranking'
+stop_criteria:
+    max_usage: 5
+    patience: 7
+    min_delta: 0.02
+
+use_wandb: False

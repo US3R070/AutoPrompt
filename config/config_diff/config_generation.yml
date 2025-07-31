@@ -46,4 +46,4 @@ eval:
     error_threshold: 3
     num_large_errors: 3
 
-few_shot_examples: 4
+few_shot_examples: 1

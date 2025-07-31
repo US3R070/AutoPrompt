@@ -189,14 +189,18 @@ class GenOptimizationPipeline(OptimizationPipeline):
             self.wandb_run.log(
                 {"Prompt": f"<p>{self.cur_prompt}</p>", "Samples": random_subset},
                 step=self.batch_id)
-        # 只在 batch_id > 0 時才執行 annotator
-        if self.batch_id > 0 or generated:
+
+        # 只在以下情況執行 annotator：
+        # 1. batch_id > 0 且沒有 ground truth 資料，或
+        # 2. 有新生成的資料 (generated=True)
+        if (self.batch_id > 0) or generated:
             logging.info(f'Running annotator on new samples for batch_id: {self.batch_id}')
             self.annotator.cur_instruct = self.cur_prompt
             records = self.annotator.apply(self.dataset, self.batch_id)
             self.dataset.update(records)
         else:
             logging.info('Skipping annotator for initial dataset (batch_id=0).')
+
         self.predictor.cur_instruct = self.cur_prompt
         logging.info('Running Predictor')
         records = self.predictor.apply(self.dataset, self.batch_id, leq=True)

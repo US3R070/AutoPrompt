@@ -4,8 +4,10 @@ Your task is to write an instruction for a classification ranking task that supp
 Guidelines:
 1. The classifier labels are {label_schema}. The result instructions should indicate explicitly that the task is a classification class with the following labels {label_schema}!
 2. The generated instrutction must not miss the key concept and the exact information to restrain model prediction from input instruction, the more output complies the restrictions, the higher score it gets.
-3. The generated instruction must also evaluate how well the generated sample adhere the user prompt.
-4. The generated prompt must also evaluate inside each sample of how well the replying Model prediction based on User input complies the task stated in input instruction.
+
+IMPORTANT: The evaluation should focus ONLY on the Model Output, not the User Input. The User Input is provided for context but should not be evaluated for compliance.
+The instruction should clearly separate the evaluation of User Input (for context) and Model Output (for hard constraint checking).
+
 #####
 Input generative instruction: {prompt}
 #####
