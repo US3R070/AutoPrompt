@@ -35,6 +35,33 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
                     pass
                 self.predictor.init_chain = init_chain
 
+    def classifier_early_stopping(self):
+        """
+        Classifier 專用的 early stopping 機制
+        當達到完美準確度（100%）時停止訓練
+        """
+        if not self.eval.history:
+            return False
+        
+        # 檢查最新的分數是否達到完美準確度
+        latest_score = self.eval.history[-1]['score']
+        
+        # 如果分數達到 1.0（100% 準確度），則停止
+        if latest_score >= 1.0:
+            self.log_and_print(f'🎉 達到完美準確度！分數: {latest_score:.4f}')
+            self.log_and_print('Classifier 訓練完成，停止優化。')
+            return True
+        
+        # 檢查是否有連續多輪沒有改善
+        if len(self.eval.history) >= 5:
+            recent_scores = [h['score'] for h in self.eval.history[-5:]]
+            if all(abs(recent_scores[i] - recent_scores[i-1]) < 0.001 for i in range(1, len(recent_scores))):
+                self.log_and_print(f'連續 {len(recent_scores)} 輪分數無改善，停止優化。')
+                self.log_and_print(f'最近分數: {recent_scores}')
+                return True
+        
+        return False
+
     def step(self, current_iter, total_iter):
         
         generated = False
@@ -143,16 +170,15 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
             if i < len(self.dataset.records):
                 self.dataset.records.iloc[i, self.dataset.records.columns.get_loc('prediction')] = pred
         
-        print("self.dataset.records['prediction'] : ",self.dataset.records['prediction'])
+        print("self.dataset.records['prediction'] : \n",self.dataset.records['prediction'])
 
         # 設置eval的dataset並計算分數
         self.eval.dataset = self.dataset.get_leq(self.batch_id)
-        self.eval.eval_score()
+        score = self.eval.eval_score()  # 直接獲取計算的分數
         logging.info('Calculating Score')
         large_errors = self.eval.extract_errors()
         
         # 記錄到 history
-        score = self.eval.history[-1]['score'] if self.eval.history else 0.0
         self.eval.history.append({
             'prompt': raw_prompt,
             'score': score,
@@ -173,6 +199,12 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
                             'Total usage': self.calc_usage()}
             self.wandb_run.log(wandb_log_data, step=self.batch_id)
 
+        # 檢查 early stopping 條件
+        if self.classifier_early_stopping():
+            self.log_and_print('Early stopping criteria reached')
+            return True
+        
+        # 檢查原有的停止條件
         if self.stop_criteria():
             self.log_and_print('Stop criteria reached')
             return True
@@ -221,6 +253,7 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
                 'prompt': self.cur_prompt,
                 'failure_cases': large_error_to_str
             }
+            print("failure_cases: ",large_error_to_str)
             
             # 若有 label_schema 也帶入
             if 'label_schema' in self.config.dataset.keys():

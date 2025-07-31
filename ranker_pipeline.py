@@ -95,19 +95,78 @@ class RnkOptimizationPipeline(OptimizationPipeline):
             self.wandb_run.log(
                 {"Prompt": f"<p>{self.cur_prompt}</p>", "Samples": random_subset},
                 step=self.batch_id)
-        # 只在 batch_id > 0 時才執行 annotator
-        if self.batch_id > 0 or generated:
+
+        # 檢查是否有 ground truth 資料（非合成資料）
+        has_ground_truth = 'is_synthetic' in self.dataset.records.columns
+        ground_truth_count = 0
+        if has_ground_truth:
+            ground_truth_count = len(self.dataset.records[self.dataset.records['is_synthetic'] == False])
+
+        # 只在以下情況執行 annotator：
+        # 1. batch_id > 0 且沒有 ground truth 資料，或
+        # 2. 有新生成的資料 (generated=True)
+        if (self.batch_id > 0 and ground_truth_count == 0) or generated:
             logging.info(f'Running annotator on new samples for batch_id: {self.batch_id}')
             self.annotator.cur_instruct = self.cur_prompt
             records = self.annotator.apply(self.dataset, self.batch_id)
             self.dataset.update(records)
         else:
-            logging.info('Skipping annotator for initial dataset (batch_id=0).')
+            if ground_truth_count > 0:
+                logging.info(f'Skipping annotator for batch_id: {self.batch_id} - using {ground_truth_count} ground truth samples')
+            else:
+                logging.info('Skipping annotator for initial dataset (batch_id=0).')
+
         self.predictor.cur_instruct = self.cur_prompt
         logging.info('Running Predictor')
-        # print("now batch_id : ",self.batch_id," self.cur_prompt : ",self.cur_prompt)
-        records = self.predictor.apply(self.dataset, self.batch_id, leq=True)
-        self.dataset.update(records)
+        
+        # 使用 raw prompt 進行預測
+        logging.info('Running Raw Prompt Evaluation')
+        testdata = self.dataset.get_leq(self.batch_id)
+        from utils.llm_chain import get_llm
+        import re
+        
+        llm = get_llm(self.config.predictor.config.llm)
+        raw_predictions = []
+        
+        # 添加進度條
+        from tqdm import tqdm
+        progress_bar = tqdm(total=len(testdata), desc="Processing samples", unit="sample")
+        
+        for i, row in testdata.iterrows():
+            try:
+                user_input = row['text']
+                prompt = f"{self.cur_prompt}\n\n {user_input}"
+                response = llm.invoke(prompt)  # 直接傳 str
+                
+                # 處理回應
+                if isinstance(response, dict) and 'text' in response:
+                    resp_text = response['text']
+                else:
+                    resp_text = str(response)
+                
+                # 提取 1-5 分數
+                label_schema = self.config.dataset.label_schema
+                pattern = r'\b([1-5])\b'
+                match = re.search(pattern, resp_text)
+                label = match.group(1) if match else '1'
+                raw_predictions.append(label)
+                
+            except Exception as e:
+                logging.error(f"Error processing sample {i}: {e}")
+                raw_predictions.append('1')
+            
+            # 更新進度條
+            progress_bar.update(1)
+        
+        # 關閉進度條
+        progress_bar.close()
+        
+        # 更新dataset的prediction欄位
+        for i, pred in enumerate(raw_predictions):
+            if i < len(self.dataset.records):
+                self.dataset.records.iloc[i, self.dataset.records.columns.get_loc('prediction')] = pred
+        
+        print("self.dataset.records['prediction'] : ",self.dataset.records['prediction'])
         
         self.eval.dataset = self.dataset.get_leq(self.batch_id)
         self.eval.eval_score()

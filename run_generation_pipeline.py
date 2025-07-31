@@ -11,6 +11,7 @@ from generation_pipeline import GenOptimizationPipeline
 from ranker_pipeline import RnkOptimizationPipeline
 from single_classify_pipeline import SingleClassifyOptimizationPipeline
 from utils.llm_chain import MetaChain
+from easydict import EasyDict
 
 
 def process_dataset(config_params, output_dir, filename, type='ranker'):
@@ -39,9 +40,16 @@ def process_dataset(config_params, output_dir, filename, type='ranker'):
             df['text'] = df.apply(lambda row: f"###User input:\n{row['text']}\n####model prediction:\n{row['answer']}", axis=1)
             # df['text'] = (df['answer'] if 'answer' in df.columns else '')
             df['annotation'] = (df['label'] if 'label' in df.columns else pd.NA)
+            # 添加 is_synthetic 欄位：有 ground truth 資料的標記為 False（非合成資料）
+            df['is_synthetic'] = False
+            print(f"Ranker數據預處理完成：")
+            print(f"  - 總數據量: {len(df)}")
+
         elif type == 'generator':
             df['text'] = (df['text'] if 'text' in df.columns else '')
             df['score'] = (df['label'] if 'label' in df.columns else pd.NA)
+            # 添加 is_synthetic 欄位：有 ground truth 資料的標記為 False（非合成資料）
+            df['is_synthetic'] = False
         elif type == 'classifier':
             # Classifier特殊預處理：將label為1分的標記為False，其他標記為True
             df['text'] = df.apply(lambda row: f"###User input:\n{row['text']}\n####model prediction:\n{row['answer']}", axis=1)
@@ -90,7 +98,7 @@ parser.add_argument('--ranker_config_path', default='config/config_diff/config_r
 parser.add_argument('--classifier_config_path', default='config/config_diff/config_classifier.yml', type=str, help='Configuration file path')
 
 parser.add_argument('--task_description',
-                    default='你是一個短句回答者，對於每一種不同的短句，你有幾個模板回復可以選，選擇一個語意最適合的來回復對方',
+                    default='你是一個回答者，對於每一種不同的輸入，你有幾個模板回復可以選，選擇一個語意最適合的來回復對方',
                     required=False, type=str, help='Describing the task')
 parser.add_argument('--prompt',
                     default=
@@ -108,9 +116,9 @@ parser.add_argument('--prompt',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
-parser.add_argument('--num_classifier_steps', default=20, type=int, help='Number of iterations for classifier')
-parser.add_argument('--num_ranker_steps', default=30, type=int, help='Number of iterations for ranker')
-parser.add_argument('--num_generation_steps', default=15, type=int, help='Number of iterations for generation')
+parser.add_argument('--num_classifier_steps', default=1, type=int, help='Number of iterations for classifier')
+parser.add_argument('--num_ranker_steps', default=10, type=int, help='Number of iterations for ranker')
+parser.add_argument('--num_generation_steps', default=5, type=int, help='Number of iterations for generation')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
 opt = parser.parse_args()
@@ -163,6 +171,9 @@ print("=" * 50)
 print("步驟2: Ranker - 語意評分")
 print("=" * 50)
 
+ranker_config_params.eval.function_params = ranker_config_params.annotator.config
+ranker_config_params.eval.function_params.label_schema = ranker_config_params.dataset.label_schema
+
 # 處理 ranking 資料集
 if ranker_config_params.dataset.records_path != None:
     process_dataset(ranker_config_params, os.path.join(opt.output_dump, 'ranker'), 'ranking_dataset_processed.csv', type='ranker')
@@ -197,7 +208,7 @@ generation_config_params.eval.function_params.instruction = best_ranker_prompt['
 generation_config_params.eval.function_params.label_schema = ranker_config_params.dataset.label_schema
 
 # 添加 classifier 的評估
-classifier_eval_config = classifier_config_params.predictor.config.copy()
+classifier_eval_config = EasyDict(classifier_config_params.predictor.config.copy())
 classifier_eval_config.instruction = best_classifier_prompt['prompt']
 classifier_eval_config.label_schema = classifier_config_params.dataset.label_schema
 

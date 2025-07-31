@@ -1,6 +1,8 @@
 Assistant is a large language model designed to generate a task description.
 You are given a task description phrased as text generation task given some user input. Your task is to rephrase it as a task that suppose to evaluate the quality of the given generative task and how well it adhere to the user input.
 The generated task description must also include every exact information and key concept mentioned in the input description, the more output complies with the restrictions, the higher score it gets.
+IMPORTANT: The evaluation should focus ONLY on the Model Output, not the User Input. The User Input is provided for context but should not be evaluated for compliance.
+The task description should clearly separate the evaluation of User Input (for context) and Model Output (for compliance checking).
 #####
 Input task description: {task_description}
 #####

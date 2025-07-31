@@ -46,7 +46,7 @@ annotator:
 
 eval:
     function_name: 'accuracy'
-    num_large_errors: 3
+    num_large_errors: 5
     num_boundary_predictions: 0
     error_threshold: 0.5
 

@@ -17,6 +17,7 @@ class Eval:
         """
         self.score_function_name = config.function_name
         self.score_func = self.get_eval_function(config)
+        self.function_params = config.get('function_params')  # 新增此行
         self.num_errors = config.num_large_errors
         self.error_threshold = config.error_threshold
         self.dataset = None
@@ -37,6 +38,12 @@ class Eval:
             return utils.set_function_from_iterrow(lambda record: record['annotation'] == record['prediction'])
         elif config.function_name == 'ranking':
             return utils.set_ranking_function(config.function_params)
+        elif config.function_name == 'classifier_then_ranker':
+            # 需要 classifier_params 和 ranker_params
+            if hasattr(config, 'classifier_params') and hasattr(config, 'ranker_params'):
+                return utils.set_classifier_then_ranker_function(config.classifier_params, config.ranker_params)
+            else:
+                raise ValueError("classifier_then_ranker 需要 classifier_params 和 ranker_params")
         else:
             raise NotImplementedError("Eval function not implemented")
 
@@ -72,6 +79,15 @@ class Eval:
         :return: A string that contains the large errors that is used in the meta-prompt
         """
         required_columns = ['annotation', 'text', 'score', 'prediction']
+        
+        # 添加調試信息
+        print(f"🔍 large_error_to_str 調試信息:")
+        print(f"  - 總錯誤數量: {len(error_df)}")
+        print(f"  - 錯誤 DataFrame 欄位: {error_df.columns.tolist()}")
+        if len(error_df) > 0:
+            print(f"  - 錯誤樣本:")
+            print(error_df)
+        
         label_schema = error_df['annotation'].unique()
         if self.score_function_name == 'ranking':
             gt_name = 'Rank'
@@ -81,8 +97,16 @@ class Eval:
         txt_res = ''
         for label in label_schema:
             cur_df = error_df[error_df['annotation'] == label]
-            cur_df = cur_df.sample(frac=1.0, random_state=42)[:num_large_errors_per_label]
-            error_res_df_list.append(cur_df[required_columns])
+            print(f"  - Label '{label}' 的錯誤數量: {len(cur_df)}")
+            
+            # 如果錯誤數量超過限制，隨機採樣
+            if len(cur_df) > num_large_errors_per_label:
+                cur_df = cur_df.sample(frac=1.0, random_state=42)[:num_large_errors_per_label]
+
+            
+            if len(cur_df) > 0:
+                error_res_df_list.append(cur_df[required_columns])
+        
         if len(error_res_df_list) > 0:
             error_res_df = pd.concat(error_res_df_list, ignore_index=True)
             error_res_df = error_res_df.sample(frac=1.0, random_state=42)
@@ -130,6 +154,7 @@ class Eval:
             prompt_input['confusion_matrix'] = conf_text
         elif self.score_function_name == 'ranking':
             prompt_input['labels'] = self.label_schema
+            prompt_input['confusion_matrix'] = "N/A for ranking tasks."
             print('prompt_input : ',prompt_input)
         analysis = self.analyzer.invoke(prompt_input)
 
@@ -142,8 +167,20 @@ class Eval:
         :return: records that contains the errors
         """
         df = self.dataset
+        print(f"🔍 extract_errors 調試信息:")
+        print(f"  - 總樣本數量: {len(df)}")
+        print(f"  - 樣本分數分布: {df['score']}")
+        print(f"  - 錯誤閾值: {self.error_threshold}")
+        
+        # 提取錯誤樣本（分數小於閾值的樣本）
         err_df = df[df['score'] < self.error_threshold]
-        err_df.sort_values(by=['score'])
+        print(f"  - 錯誤樣本數量: {len(err_df)}")
+        
+        if len(err_df) > 0:
+            print(f"  - 錯誤樣本的 annotation 分布: {err_df['annotation'].value_counts().to_dict()}")
+            print(f"  - 錯誤樣本的 prediction 分布: {err_df['prediction'].value_counts().to_dict()}")
+        
+        err_df = err_df.sort_values(by=['score'])
         self.errors = err_df
         return self.errors
 
