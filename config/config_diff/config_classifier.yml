@@ -56,3 +56,4 @@ stop_criteria:
     min_delta: 0.02
 
 use_wandb: False 
+few_shot_examples: 1

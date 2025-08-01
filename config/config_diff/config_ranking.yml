@@ -34,7 +34,7 @@ eval:
     function_name: 'ranking'
     num_large_errors: 3
     num_boundary_predictions: 0
-    error_threshold: 3
+    error_threshold: 0.55
 
 llm:
     name: 'gpt-4o' # This is the meta-prompt LLM, it should be a strong model. For example, using GPT-3.5 will cause an error in many cases.

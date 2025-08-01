@@ -45,7 +45,7 @@ eval:
     function_name: 'accuracy'
     num_large_errors: 4
     num_boundary_predictions : 0
-    error_threshold: 0.5
+    error_threshold: 0.75
 
 llm:
     name: 'gpt-4o-mini' # This is the meta-prompt LLM, it should be a strong model. For example, using GPT-3.5 will cause an error in many cases.
