@@ -119,52 +119,57 @@ class RnkOptimizationPipeline(OptimizationPipeline):
         self.predictor.cur_instruct = self.cur_prompt
         logging.info('Running Predictor')
         
-        # 使用 raw prompt 進行預測
-        logging.info('Running Raw Prompt Evaluation')
-        testdata = self.dataset.get_leq(self.batch_id)
-        from utils.llm_chain import get_llm
-        import re
+        # # 使用 raw prompt 進行預測 (註解掉原始的單筆 invoke 方法)
+        # logging.info('Running Raw Prompt Evaluation')
+        # testdata = self.dataset.get_leq(self.batch_id)
+        # from utils.llm_chain import get_llm
+        # import re
         
-        llm = get_llm(self.config.predictor.config.llm)
-        raw_predictions = []
+        # llm = get_llm(self.config.predictor.config.llm)
+        # raw_predictions = []
         
-        # 添加進度條
-        from tqdm import tqdm
-        progress_bar = tqdm(total=len(testdata), desc="Processing samples", unit="sample")
+        # # 添加進度條
+        # from tqdm import tqdm
+        # progress_bar = tqdm(total=len(testdata), desc="Processing samples", unit="sample")
         
-        for i, row in testdata.iterrows():
-            try:
-                user_input = row['text']
-                prompt = f"{self.cur_prompt}\n\n {user_input}"
-                response = llm.invoke(prompt)  # 直接傳 str
+        # for i, row in testdata.iterrows():
+        #     try:
+        #         user_input = row['text']
+        #         prompt = f"{self.cur_prompt}\n\n {user_input}"
+        #         response = llm.invoke(prompt)  # 直接傳 str
                 
-                # 處理回應
-                if isinstance(response, dict) and 'text' in response:
-                    resp_text = response['text']
-                else:
-                    resp_text = str(response)
+        #         # 處理回應
+        #         if isinstance(response, dict) and 'text' in response:
+        #             resp_text = response['text']
+        #         else:
+        #             resp_text = str(response)
                 
-                # 提取 1-5 分數
-                label_schema = self.config.dataset.label_schema
-                pattern = r'\b([1-5])\b'
-                match = re.search(pattern, resp_text)
-                label = match.group(1) if match else '1'
-                raw_predictions.append(label)
+        #         # 提取 1-5 分數
+        #         label_schema = self.config.dataset.label_schema
+        #         pattern = r'\b([1-5])\b'
+        #         match = re.search(pattern, resp_text)
+        #         label = match.group(1) if match else '1'
+        #         raw_predictions.append(label)
                 
-            except Exception as e:
-                logging.error(f"Error processing sample {i}: {e}")
-                raw_predictions.append('1')
+        #     except Exception as e:
+        #         logging.error(f"Error processing sample {i}: {e}")
+        #         raw_predictions.append('1')
             
-            # 更新進度條
-            progress_bar.update(1)
+        #     # 更新進度條
+        #     progress_bar.update(1)
         
-        # 關閉進度條
-        progress_bar.close()
+        # # 關閉進度條
+        # progress_bar.close()
         
-        # 更新dataset的prediction欄位
-        for i, pred in enumerate(raw_predictions):
-            if i < len(self.dataset.records):
-                self.dataset.records.iloc[i, self.dataset.records.columns.get_loc('prediction')] = pred
+        # # 更新dataset的prediction欄位
+        # for i, pred in enumerate(raw_predictions):
+        #     if i < len(self.dataset.records):
+        #         self.dataset.records.iloc[i, self.dataset.records.columns.get_loc('prediction')] = pred
+
+        # 使用 predictor 進行批次預測
+        testdata = self.dataset.get_leq(self.batch_id)
+        records = self.predictor.apply(self.dataset, self.batch_id)
+        self.dataset.update(records)
         
         print("self.dataset.records['prediction'] : ",self.dataset.records['prediction'])
         

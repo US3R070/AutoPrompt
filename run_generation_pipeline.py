@@ -39,6 +39,7 @@ def process_dataset(config_params, output_dir, filename, type='ranker'):
         if type == 'ranker':
             df['text'] = df.apply(lambda row: f"###User input:\n{row['text']}\n####model prediction:\n{row['answer']}", axis=1)
             # df['text'] = (df['answer'] if 'answer' in df.columns else '')
+            df = df[df['label'] != 1]
             df['annotation'] = (df['label'] if 'label' in df.columns else pd.NA)
             # 添加 is_synthetic 欄位：有 ground truth 資料的標記為 False（非合成資料）
             df['is_synthetic'] = False
@@ -116,9 +117,9 @@ parser.add_argument('--prompt',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
-parser.add_argument('--num_classifier_steps', default=1, type=int, help='Number of iterations for classifier')
-parser.add_argument('--num_ranker_steps', default=10, type=int, help='Number of iterations for ranker')
-parser.add_argument('--num_generation_steps', default=5, type=int, help='Number of iterations for generation')
+parser.add_argument('--num_classifier_steps', default=2, type=int, help='Number of iterations for classifier')
+parser.add_argument('--num_ranker_steps', default=2, type=int, help='Number of iterations for ranker')
+parser.add_argument('--num_generation_steps', default=3, type=int, help='Number of iterations for generation')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
 opt = parser.parse_args()

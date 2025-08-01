@@ -11,10 +11,36 @@ def set_function_from_iterrow(func):
 
 
 def set_ranking_function(params):
+    """
+    Calculates a score based on the absolute difference between prediction and annotation.
+    The score is normalized to a 0-1 range, where 1 is a perfect match.
+    Assumes a 1-5 rating scale as per the project's ranking configuration.
+    """
     def wrapper(dataset):
-        # 直接比較 prediction 和 annotation
-        # 將兩者都轉為字串以避免型別問題
-        dataset['score'] = (dataset['prediction'].astype(str) == dataset['annotation'].astype(str)).astype(int)
+        import pandas as pd
+
+        # Convert prediction and annotation to numeric, coercing errors to NaN
+        pred = pd.to_numeric(dataset['prediction'], errors='coerce')
+        anno = pd.to_numeric(dataset['annotation'], errors='coerce')
+
+        # Define rating scale based on the project's configuration [1, 2, 3, 4, 5]
+        min_rating = 1
+        max_rating = 5
+        rating_range = max_rating - min_rating
+
+        # Calculate absolute difference
+        abs_diff = (pred - anno).abs()
+
+        # Calculate score using the formula: score = 1 - (diff / range)
+        # A score of 1 is a perfect match, a score of 0 is the max possible distance.
+        score = 1.0 - (abs_diff / rating_range)
+        
+        # Scores can be negative if prediction is outside the annotation range (e.g. pred=6, anno=1). Clip at 0.
+        score = score.clip(lower=0)
+
+        # Fill NaN values (from conversion errors or non-numeric labels) with 0, the lowest score.
+        dataset['score'] = score.fillna(0)
+
         return dataset
     return wrapper
 

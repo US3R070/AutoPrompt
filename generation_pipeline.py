@@ -1,6 +1,7 @@
 from optimization_pipeline import OptimizationPipeline
 import logging
 import json
+import pandas as pd
 
 class GenOptimizationPipeline(OptimizationPipeline):
     def __init__(self, *args, classifier_eval_config=None, **kwargs):
@@ -109,24 +110,49 @@ class GenOptimizationPipeline(OptimizationPipeline):
         
         testdata = self.dataset.get_leq(self.batch_id)
         
-        # Classifier 評估
+        # Classifier 評估 (改為逐筆 invoke 並顯示進度)
         classifier_scores = []
         if self.classifier_eval_config:
+            from tqdm import tqdm
             classifier_estimator = LLMEstimator(self.classifier_eval_config)
             classifier_estimator.init_chain(self.classifier_eval_config.label_schema)
             
-            # 創建classifier評估用的dataframe，明確分離User Input和Model Output
             classifier_df = testdata.copy()
-            classifier_df['text'] = classifier_df.apply(lambda row: f"###User input (for context only):\n{row['text']}\n####Model output (evaluate for compliance):\n{row['prediction']}", axis=1)
             
-            # 使用classifier評估
-            classifier_results = classifier_estimator.apply_dataframe(classifier_df)
+            print("\n--- Starting Classifier Evaluation (逐筆) ---")
+            progress_bar = tqdm(total=len(classifier_df), desc="Classifying", unit="sample")
+
+            for index, row in classifier_df.iterrows():
+                try:
+                    # 準備 classifier 的輸入
+                    classifier_input = f"###User input (for context only):\n{row['text']}\n####Model output (evaluate for compliance):\n{row['prediction']}"
+                    
+                    # 逐筆 invoke
+                    response = classifier_estimator.llm.invoke(classifier_input)
+                    
+                    # 處理回應
+                    if isinstance(response, dict) and 'text' in response:
+                        classifier_result_text = response['text'].strip().lower()
+                    else:
+                        classifier_result_text = str(response).strip().lower()
+
+                    # 判斷是否通過
+                    is_compliant = classifier_result_text in ['true', '1', 'yes']
+                    classifier_scores.append(1 if is_compliant else 0)
+                    
+                    # Print 結果
+                    status = "\033[92mPass\033[0m" if is_compliant else "\033[91mFail\033[0m"
+                    print(f"  - Sample {index}: [ {status} ] - Prediction: '{row['prediction'][:80]}...' - Classifier says: '{classifier_result_text}'")
+
+                except Exception as e:
+                    logging.error(f"Error during classifier invocation for sample {index}: {e}")
+                    classifier_scores.append(0) # 發生錯誤視為不通過
+                    print(f"  - Sample {index}: [ \033[91mError\033[0m ] - Prediction: '{row['prediction'][:80]}...'\n")
+
+                progress_bar.update(1)
             
-            for i, row in classifier_results.iterrows():
-                classifier_result = row['prediction']
-                # 檢查是否為True/False
-                is_compliant = classifier_result.strip().lower() in ['true', '1', 'yes']
-                classifier_scores.append(1 if is_compliant else 0)
+            progress_bar.close()
+            print("--- Classifier Evaluation Finished ---\n")
         else:
             classifier_scores = [1] * len(testdata)  # 如果沒有classifier配置，預設為通過
         
@@ -206,6 +232,20 @@ class GenOptimizationPipeline(OptimizationPipeline):
         records = self.predictor.apply(self.dataset, self.batch_id, leq=True)
         
         self.dataset.update(records)
+
+        # --- 新增：列印生成的 題目和答案 配對 ---
+        print("\n--- Generated Q&A Pairs ---")
+        # 從更新後的 records DataFrame 中提取 text (題目) 和 prediction (答案)
+        # 我們只關心當前這輪 (leq=True) 生成或更新的樣本
+        current_records = self.dataset.get_leq(self.batch_id)
+        for index, row in current_records.iterrows():
+            # 確保 prediction 不是 None 或 NaN
+            if row['prediction'] and pd.notna(row['prediction']):
+                print(f"  - Q: {row['text']}")
+                print(f"    A: \033[96m{row['prediction']}\033[0m")
+                print("  ---")
+        print("--- End of Q&A Pairs ---\n")
+        # --- 結束新增 ---
         
         self.eval.dataset = self.dataset.get_leq(self.batch_id)
         
@@ -228,7 +268,6 @@ class GenOptimizationPipeline(OptimizationPipeline):
             large_errors = large_errors.sample(n=min(6, len(large_errors)))
             correct_samples = self.eval.extract_correct()
             correct_samples = correct_samples.sample(n=min(6, len(correct_samples)))
-            import pandas as pd
             vis_data = pd.concat([large_errors, correct_samples])
             self.wandb_run.log({"score": self.eval.history[-1]['score'],
                                 "prediction_result": vis_data,

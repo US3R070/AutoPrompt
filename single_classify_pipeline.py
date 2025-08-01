@@ -50,6 +50,23 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
         if latest_score >= 1.0:
             self.log_and_print(f'🎉 達到完美準確度！分數: {latest_score:.4f}')
             self.log_and_print('Classifier 訓練完成，停止優化。')
+            # 確保當前最佳結果被記錄
+            if hasattr(self, 'output_path') and self.output_path:
+                def save_prompt_history(output_dir, batch_id, prompt, score):
+                    output_dir = Path(output_dir)
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                    file_path = output_dir / "best_prompts_history.jsonl"
+                    with open(file_path, "a", encoding="utf-8") as f:
+                        f.write(json.dumps({
+                            "batch_id": batch_id,
+                            "prompt": prompt,
+                            "score": score
+                        }, ensure_ascii=False) + "\n")
+                save_prompt_history(self.output_path, self.batch_id, self.eval.history[-1]['prompt'], latest_score)
+            
+            # 調試信息：顯示當前最佳結果
+            self.log_and_print(f'Early stopping 時的最佳 prompt: {self.eval.history[-1]["prompt"]}')
+            self.log_and_print(f'Early stopping 時的最佳分數: {latest_score}')
             return True
         
         # 檢查是否有連續多輪沒有改善
@@ -61,6 +78,29 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
                 return True
         
         return False
+
+    def extract_best_prompt(self):
+        """
+        重寫 extract_best_prompt 方法，確保返回真正的最佳結果
+        特別處理 early stopping 的情況
+        """
+        if not self.eval.history:
+            return {'prompt': self.cur_prompt, 'score': 0.0}
+        
+        # 找出分數最高的記錄
+        best_record = max(self.eval.history, key=lambda x: x['score'])
+        
+        # 調試信息
+        self.log_and_print(f'Classifier extract_best_prompt:')
+        self.log_and_print(f'  - 歷史記錄數量: {len(self.eval.history)}')
+        self.log_and_print(f'  - 最佳分數: {best_record["score"]:.4f}')
+        self.log_and_print(f'  - 最佳 prompt: {best_record["prompt"]}')
+        
+        # 顯示所有歷史記錄的分數
+        for i, record in enumerate(self.eval.history):
+            self.log_and_print(f'  - 記錄 {i}: 分數={record["score"]:.4f}, prompt={record["prompt"][:50]}...')
+        
+        return {'prompt': best_record['prompt'], 'score': best_record['score']}
 
     def step(self, current_iter, total_iter):
         
@@ -178,15 +218,29 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
         logging.info('Calculating Score')
         large_errors = self.eval.extract_errors()
         
-        # 記錄到 history
-        self.eval.history.append({
-            'prompt': raw_prompt,
-            'score': score,
-            'errors': large_errors,
-            'confusion_matrix': confusion_matrix(self.eval.dataset['annotation'].astype(str).str.lower(), 
-                                              self.eval.dataset['prediction'].astype(str).str.lower()),
-            'analysis': '[raw prompt 真實評分]'
-        })
+        # 使用 eval.add_history 方法記錄結果
+        # 先設置 eval 的 dataset 和 score，然後調用 add_history
+        self.eval.add_history(raw_prompt, self.task_description)
+        
+        # 調試信息：顯示當前結果
+        self.log_and_print(f'當前 step 結果:')
+        self.log_and_print(f'  - raw_prompt: {raw_prompt[:100]}...')
+        self.log_and_print(f'  - score: {score:.4f}')
+        self.log_and_print(f'  - history 長度: {len(self.eval.history)}')
+        
+        # 保存 prompt history（在 early stopping 檢查之前）
+        def save_prompt_history(output_dir, batch_id, prompt, score):
+            output_dir = Path(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            file_path = output_dir / "best_prompts_history.jsonl"
+            with open(file_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "batch_id": batch_id,
+                    "prompt": prompt,
+                    "score": score
+                }, ensure_ascii=False) + "\n")
+        save_prompt_history(self.output_path, self.batch_id, raw_prompt, score)
+        
         # ====== END ======
 
         if self.config.use_wandb:
@@ -202,6 +256,10 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
         # 檢查 early stopping 條件
         if self.classifier_early_stopping():
             self.log_and_print('Early stopping criteria reached')
+            # 確保在 early stopping 時記錄當前最佳結果
+            self.log_and_print(f'Early stopping 時的當前結果:')
+            self.log_and_print(f'  - 當前 prompt: {raw_prompt[:100]}...')
+            self.log_and_print(f'  - 當前分數: {score:.4f}')
             return True
         
         # 檢查原有的停止條件
@@ -211,18 +269,6 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
         if current_iter != total_iter-1:
             self.run_step_prompt()
         self.save_state()
-
-        def save_prompt_history(output_dir, batch_id, prompt, score):
-            output_dir = Path(output_dir)
-            output_dir.mkdir(parents=True, exist_ok=True)
-            file_path = output_dir / "best_prompts_history.jsonl"
-            with open(file_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "batch_id": batch_id,
-                    "prompt": prompt,
-                    "score": score
-                }, ensure_ascii=False) + "\n")
-        save_prompt_history(self.output_path, self.batch_id, raw_prompt, score)
 
         return False
 
