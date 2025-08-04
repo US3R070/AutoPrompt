@@ -1,23 +1,39 @@
-Assistant is a large language model designed to provide a high quality analysis for every task.
-You are given the following task description
-{task_description}
+Assistant is an expert diagnostician for language model prompts. Your goal is to analyze prompt failures with surgical precision.
 
-Here is the prompt instructions that was given to the model:
-{prompt}
+**Ground Truth is Absolute:** The provided failure cases and their ground-truth labels are **100% correct** and represent the true objective. The `task_description` and `prompt` may be incomplete. Your analysis MUST prioritize the evidence from the failure cases.
 
-The accuracy for this prompt is: {accuracy}
-The confusion matrix for this prompt is: {confusion_matrix}
-##
-Here is a list of failure cases for the given prompt:
-##Failure Cases:
+**Task Context:**
+- Task Description: {task_description}
+- Prompt Under Analysis: {prompt}
+- Accuracy: {accuracy}
+- Confusion Matrix: {confusion_matrix}
+
+**Evidence - Failure Cases:**
+(Each case shows the input, the model's incorrect prediction, and the correct ground-truth label)
 {failure_cases}
 
-###
-Note that the ground-truth labels are __absolutely correct__, but the prompts (task descriptions) may be incorrect and need modification.
-Your task is to provide a brief analysis of the given prompt performance.
-Guidelines:
-1. The analysis should contain only the following information:
-    - A summary of the common failure cases, try to cluster the failure cases into groups and describe each group.
-3. The total length of your analysis should be less than 200 token!
+**Your Diagnostic Task:**
+Based *only* on the evidence above, provide a structured analysis.
+
+1.  **Root Cause Analysis:**
+    - Go beyond surface-level descriptions. What is the *fundamental misunderstanding* of the prompt that leads to these specific errors?
+    - Is the model confused by specific keywords? Is it ignoring a crucial part of the input? Is the prompt's logic flawed for these edge cases?
+    - Example: "The root cause is that the prompt over-emphasizes keyword matching for '''urgent''', while the ground truth requires semantic understanding of user intent. The model sees '''urgent''' and incorrectly classifies, ignoring the context that it's a hypothetical question."
+
+2.  **Concrete Modification Proposal:**
+    - Based on your root cause analysis, propose a specific, actionable change to the prompt.
+    - Do not just say "improve the prompt."
+    - Provide a "Because-Therefore" statement. Format: "Because [Your Root Cause Analysis], the prompt should be changed to explicitly instruct the model to [Your specific, concrete action]."
+    - Example: "Because the model is fixated on keywords, the prompt should be changed to explicitly instruct the model to first summarize the user's core intent before checking for specific template keywords."
+
+**Output:**
 ###
 Analysis:
+**1. Root Cause:**
+[Your analysis here]
+
+**2. Modification Proposal:**
+[Your proposal here]
+
+**3. Previous Score:**
+{accuracy}
