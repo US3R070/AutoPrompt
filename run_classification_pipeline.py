@@ -121,7 +121,6 @@ def main():
         task_description=args.task_description,
         initial_prompt=args.prompt,
         output_path=args.output_dump,
-        # reasoner=reasoner,  # 註解掉 Reasoner
         meta_chain=meta_chain,  # 新增 meta_chain 傳入
         few_shot_selector=few_shot_selector
     )

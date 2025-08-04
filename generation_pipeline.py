@@ -96,8 +96,22 @@ class GenOptimizationPipeline(OptimizationPipeline):
                     extra_samples_text = type(self.dataset).samples_to_text(extra_samples)
                     batch['history'] = 'No previous errors information'
                     batch['extra_samples'] = extra_samples_text
-            samples_batches = self.meta_chain.step_samples.batch_invoke(batch_inputs, self.config.meta_prompts.num_workers)
-            new_samples = [element for sublist in samples_batches for element in sublist['samples']]
+            # 改為逐筆 invoke
+            # samples_batches = self.meta_chain.step_samples.batch_invoke(batch_inputs, self.config.meta_prompts.num_workers)
+            # new_samples = [element for sublist in samples_batches for element in sublist['samples']]
+            from tqdm import tqdm
+            new_samples = []
+            print("\n--- Starting Sample Generation (逐筆) ---")
+            for single_input in tqdm(batch_inputs, desc="Generating Samples"):
+                try:
+                    result = self.meta_chain.step_samples.invoke(single_input)
+                    if isinstance(result, dict) and 'samples' in result:
+                        new_samples.extend(result['samples'])
+                    else:
+                        logging.warning(f"Unexpected result format from sample generation: {result}")
+                except Exception as e:
+                    logging.error(f"Error during single sample generation: {e}")
+            print("--- Sample Generation Finished ---\n")
             # new_samples = [f"請用中文生成：{sample}" for sample in new_samples]
             new_samples = self.dataset.remove_duplicates(new_samples)
             self.dataset.add(new_samples, self.batch_id)
@@ -117,18 +131,28 @@ class GenOptimizationPipeline(OptimizationPipeline):
             classifier_estimator = LLMEstimator(self.classifier_eval_config)
             classifier_estimator.init_chain(self.classifier_eval_config.label_schema)
             
+            # 根據評估設定，直接獲取 LLM 實例，這才是正確的做法
+            classifier_llm = get_llm(self.classifier_eval_config.llm)
+            
             classifier_df = testdata.copy()
+            
+            # 獲取包含指令和 few-shot 的完整 prompt 內容
+            # 這是分類器能正確運作的關鍵
+            full_prompt_template = self.classifier_eval_config.instruction
             
             print("\n--- Starting Classifier Evaluation (逐筆) ---")
             progress_bar = tqdm(total=len(classifier_df), desc="Classifying", unit="sample")
 
             for index, row in classifier_df.iterrows():
                 try:
-                    # 準備 classifier 的輸入
-                    classifier_input = f"###User input (for context only):\n{row['text']}\n####Model output (evaluate for compliance):\n{row['prediction']}"
+                    # 準備單一樣本的輸入
+                    sample_input = f"###User input:\n{row['text']}\n####model prediction:\n{row['prediction']}"
                     
-                    # 逐筆 invoke
-                    response = classifier_estimator.llm.invoke(classifier_input)
+                    # 將 instruction、few-shot 和當前樣本的輸入手動組合成完整的 prompt
+                    final_prompt = f"{full_prompt_template}\n\n{sample_input}"
+
+                    # 直接使用正確獲取的 llm 實例來 invoke，而不是透過 estimator
+                    response = classifier_llm.invoke(final_prompt)
                     
                     # 處理回應
                     if isinstance(response, dict) and 'text' in response:
@@ -136,18 +160,27 @@ class GenOptimizationPipeline(OptimizationPipeline):
                     else:
                         classifier_result_text = str(response).strip().lower()
 
-                    # 判斷是否通過
-                    is_compliant = classifier_result_text in ['true', '1', 'yes']
+                    # 從回應中解析出標籤 (True/False)
+                    label_schema = self.classifier_eval_config.label_schema
+                    pattern = r'(' + '|'.join(re.escape(label) for label in label_schema) + r')'
+                    match = re.search(pattern, classifier_result_text, re.IGNORECASE)
+                    
+                    is_compliant = False
+                    if match:
+                        # 判斷是否為 'True'
+                        is_compliant = match.group(1).lower() == 'true'
+
                     classifier_scores.append(1 if is_compliant else 0)
                     
                     # Print 結果
                     status = "\033[92mPass\033[0m" if is_compliant else "\033[91mFail\033[0m"
-                    print(f"  - Sample {index}: [ {status} ] - Prediction: '{row['prediction'][:80]}...' - Classifier says: '{classifier_result_text}'")
+                    parsed_label = match.group(1) if match else "N/A"
+                    print(f"  - Sample {index}: [ {status} ] - Prediction: '{row['prediction'][:80]}' - Classifier says: '{parsed_label}'")
 
                 except Exception as e:
-                    logging.error(f"Error during classifier invocation for sample {index}: {e}")
+                    #logging.error(f"Error during classifier invocation for sample {index}: {e}")
                     classifier_scores.append(0) # 發生錯誤視為不通過
-                    print(f"  - Sample {index}: [ \033[91mError\033[0m ] - Prediction: '{row['prediction'][:80]}...'\n")
+                    print(f"  - Sample {index}: [ \033[91mError\033[0m ] - Prediction: '{row['prediction'][:80]}' - Exception: {e}\n")
 
                 progress_bar.update(1)
             

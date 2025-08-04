@@ -117,8 +117,8 @@ parser.add_argument('--prompt',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
-parser.add_argument('--num_classifier_steps', default=2, type=int, help='Number of iterations for classifier')
-parser.add_argument('--num_ranker_steps', default=2, type=int, help='Number of iterations for ranker')
+parser.add_argument('--num_classifier_steps', default=1, type=int, help='Number of iterations for classifier')
+parser.add_argument('--num_ranker_steps', default=1, type=int, help='Number of iterations for ranker')
 parser.add_argument('--num_generation_steps', default=3, type=int, help='Number of iterations for generation')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
@@ -208,9 +208,26 @@ generation_config_params.eval.function_params = ranker_config_params.predictor.c
 generation_config_params.eval.function_params.instruction = best_ranker_prompt['prompt']
 generation_config_params.eval.function_params.label_schema = ranker_config_params.dataset.label_schema
 
-# 添加 classifier 的評估
-classifier_eval_config = EasyDict(classifier_config_params.predictor.config.copy())
-classifier_eval_config.instruction = best_classifier_prompt['prompt']
+# 添加 classifier 的評估，確保其執行環境與訓練時完全相同
+# 1. 複製分類器訓練時所用的 annotator 設定，這一步確保了 'prompt' (路徑) 等基礎參數被正確設定
+classifier_eval_config = EasyDict(classifier_config_params.annotator.config.copy())
+
+# 2. 從第一步訓練好的結果中，提取優化過的 prompt "內容" 和 few-shot "範例"
+best_prompt_content = best_classifier_prompt['prompt']
+if 'few_shot_examples' in best_classifier_prompt:
+    best_few_shots = best_classifier_prompt['few_shot_examples']
+else:
+    # 如果最佳結果中沒有 few-shot，就沿用 config 中的設定
+    best_few_shots = classifier_eval_config.get('few_shot_examples')
+
+# 3. 將這些優化過的內容，明確地賦值給評估器設定中的相應欄位
+#    'instruction' 用於傳遞 prompt "內容"
+#    'few_shot_examples' 用於傳遞 few-shot "範例"
+#    'prompt' 欄位 (來自第一步的複製) 則保持不變，繼續指向模板檔案路徑
+classifier_eval_config.instruction = best_prompt_content
+classifier_eval_config.few_shot_examples = best_few_shots
+
+# 4. 確保 label_schema 也被正確設定
 classifier_eval_config.label_schema = classifier_config_params.dataset.label_schema
 
 generation_pipeline = GenOptimizationPipeline(generation_config_params, task_description, initial_prompt,
