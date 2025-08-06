@@ -7,6 +7,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
     def __init__(self, *args, classifier_eval_config=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.classifier_eval_config = classifier_eval_config
+        self.prompt_for_history = self.cur_prompt
 
     def get_few_shot_examples(self, max_examples=5):
         # 只取 label==5 的 few-shot 範例
@@ -61,13 +62,14 @@ class GenOptimizationPipeline(OptimizationPipeline):
         }
         print("prompt_input : ",prompt_input)
         
-        # 產生新的提示詞，並加入few shot，假如需要NO_THINK則加入NO_THINK 
+        # 產生新的提示詞，並加入few shot，假如需要NO_THINK則加入NO_THINK
         prompt_suggestion = self.meta_chain.step_prompt_chain.invoke(prompt_input)
         if "NO_THINK" in self.cur_prompt:
-            self.cur_prompt = prompt_suggestion['prompt']+"\n\n"+"NO_THINK"
-        else :
-            self.cur_prompt = prompt_suggestion['prompt']
-        self.cur_prompt = self.cur_prompt + "\n\n" + few_shot_block
+            self.prompt_for_history = prompt_suggestion['prompt'] + "\n\n" + "NO_THINK"
+        else:
+            self.prompt_for_history = prompt_suggestion['prompt']
+        
+        self.cur_prompt = self.prompt_for_history + "\n\n" + few_shot_block
         self.log_and_print(f'Get new prompt:\n{self.cur_prompt}')
         
         self.batch_id += 1
@@ -296,7 +298,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
         
         print("self.dataset.records : ",self.dataset.records)
         
-        self.eval.add_history(self.cur_prompt, self.task_description)
+        self.eval.add_history(self.prompt_for_history, self.task_description)
         if self.config.use_wandb:
             large_errors = large_errors.sample(n=min(6, len(large_errors)))
             correct_samples = self.eval.extract_correct()
@@ -311,4 +313,4 @@ class GenOptimizationPipeline(OptimizationPipeline):
         if current_iter != total_iter-1:
             self.run_step_prompt()
         self.save_state()
-        return False 
+        return False
