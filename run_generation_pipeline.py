@@ -117,9 +117,9 @@ parser.add_argument('--prompt',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
-parser.add_argument('--num_classifier_steps', default=5, type=int, help='Number of iterations for classifier')
-parser.add_argument('--num_ranker_steps', default=10, type=int, help='Number of iterations for ranker')
-parser.add_argument('--num_generation_steps', default=3, type=int, help='Number of iterations for generation')
+parser.add_argument('--num_classifier_steps', default=1, type=int, help='Number of iterations for classifier')
+parser.add_argument('--num_ranker_steps', default=1, type=int, help='Number of iterations for ranker')
+parser.add_argument('--num_generation_steps', default=2, type=int, help='Number of iterations for generation')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
 opt = parser.parse_args()
@@ -246,3 +246,159 @@ print('\033[92m' + '最終結果總結:' + '\033[0m')
 print('\033[92m' + '=' * 50 + '\033[0m')
 
 print('\033[92m' + f'Generation 最佳提示詞分數: {best_generation_prompt["score"]:.4f}' + '\033[0m')
+
+# Final validation
+print('\033[92m' + '=' * 50 + '\033[0m')
+print('\033[92m' + 'Final Validation' + '\033[0m')
+print('\033[92m' + '=' * 50 + '\033[0m')
+
+from tqdm import tqdm
+from estimator import give_estimator
+from estimator.estimator_llm import LLMEstimator
+from langchain_core.prompts import PromptTemplate
+import numpy as np
+import random
+import pandas as pd
+
+def validate_and_compare(initial_prompt, best_prompt, dataset, llm, classifier_predictor, ranker_predictor, num_examples=5):
+    
+    # --- 1. Generation Step ---
+    template = PromptTemplate.from_template("{prompt}\n{user_input}")
+    generation_chain = template | llm
+    
+    generated_data = []
+    for record in tqdm(dataset, desc="Step 1/3: Generating Predictions"):
+        initial_text = generation_chain.invoke({"prompt": initial_prompt, "user_input": record['text']}).content
+        best_text = generation_chain.invoke({"prompt": best_prompt, "user_input": record['text']}).content
+        generated_data.append({
+            "user_input": record['text'],
+            "initial_output": initial_text,
+            "best_output": best_text
+        })
+
+    # --- 2. Classification Step ---
+    # Prepare DataFrames for classification
+    initial_classifier_df = pd.DataFrame([{
+        'id': i,
+        'text': f"###User input:\n{data['user_input']}\n####model prediction:\n{data['initial_output']}"
+    } for i, data in enumerate(generated_data)])
+    
+    best_classifier_df = pd.DataFrame([{
+        'id': i,
+        'text': f"###User input:\n{data['user_input']}\n####model prediction:\n{data['best_output']}"
+    } for i, data in enumerate(generated_data)])
+
+    # Run classification with a single progress bar
+    with tqdm(total=2, desc="Step 2/3: Classifying") as pbar:
+        initial_class_results = classifier_predictor.apply_dataframe(initial_classifier_df)
+        pbar.update(1)
+        best_class_results = classifier_predictor.apply_dataframe(best_classifier_df)
+        pbar.update(1)
+
+    # --- 3. Ranking Step ---
+    initial_scores = np.ones(len(generated_data)) # Default score is 1 (penalty)
+    best_scores = np.ones(len(generated_data))    # Default score is 1 (penalty)
+
+    # Prepare DataFrames for ranking (only for those that passed classification)
+    initial_ranker_df = initial_class_results[initial_class_results['prediction'].str.lower() == 'true'].copy()
+    best_ranker_df = best_class_results[best_class_results['prediction'].str.lower() == 'true'].copy()
+
+    # Run ranking with a single progress bar
+    if not initial_ranker_df.empty or not best_ranker_df.empty:
+        with tqdm(total=(not initial_ranker_df.empty) + (not best_ranker_df.empty), desc="Step 3/3: Ranking") as pbar:
+            if not initial_ranker_df.empty:
+                initial_rank_results = ranker_predictor.apply_dataframe(initial_ranker_df)
+                # Update scores for the ones that were ranked
+                for _, row in initial_rank_results.iterrows():
+                    initial_scores[row['id']] = float(row['prediction'])
+                pbar.update(1)
+            
+            if not best_ranker_df.empty:
+                best_rank_results = ranker_predictor.apply_dataframe(best_ranker_df)
+                # Update scores for the ones that were ranked
+                for _, row in best_rank_results.iterrows():
+                    best_scores[row['id']] = float(row['prediction'])
+                pbar.update(1)
+
+    # --- 4. Finalization ---
+    # Select random examples for comparison
+    examples = []
+    if len(generated_data) > num_examples:
+        example_indices = random.sample(range(len(generated_data)), num_examples)
+    else:
+        example_indices = range(len(generated_data))
+    
+    for i in example_indices:
+        examples.append(generated_data[i])
+
+    return np.mean(initial_scores), np.mean(best_scores), examples
+
+
+
+
+# Load dataset
+validation_dataset = generation_pipeline.dataset.records.to_dict('records')
+
+# LLM for generation
+# To replicate the generation step, we must use the exact same configuration 
+# as the predictor within the pipeline. The correct config object is under 'predictor.config'.
+llm_predictor_config = generation_config_params.predictor.config
+
+# The 'mode' attribute is not in the YAML but is required by the LLMEstimator.
+# We'll add it manually to match the likely behavior of the pipeline.
+llm_predictor_config.mode = 'prediction'
+
+# Now, create the estimator with the correct config.
+llm_estimator = LLMEstimator(opt=llm_predictor_config)
+# Initialize the chain to load the prompt and the LLM.
+llm_estimator.init_chain(label_schema=generation_config_params.dataset.label_schema)
+# Extract the llm instance for raw invocation.
+llm = llm_estimator.chain.llm
+
+# Classifier Predictor
+# We need the full predictor config object, which includes the 'method'.
+classifier_predictor_obj = classifier_config_params.predictor
+# We then inject the best prompt and few-shot examples into the inner 'config' object.
+classifier_predictor_obj.config.instruction = best_classifier_prompt['prompt']
+if 'few_shot_examples' in best_classifier_prompt:
+    classifier_predictor_obj.config.few_shot_examples = best_classifier_prompt['few_shot_examples']
+# Now, give_estimator receives the correct object with the 'method' attribute.
+classifier_predictor = give_estimator(classifier_predictor_obj)
+classifier_predictor.init_chain(label_schema=classifier_config_params.dataset.label_schema)
+
+# Ranker Predictor
+# We apply the same logic as for the classifier predictor.
+ranker_predictor_obj = ranker_config_params.predictor
+ranker_predictor_obj.config.instruction = best_ranker_prompt['prompt']
+if 'few_shot_examples' in best_ranker_prompt:
+    ranker_predictor_obj.config.few_shot_examples = best_ranker_prompt['few_shot_examples']
+ranker_predictor = give_estimator(ranker_predictor_obj)
+ranker_predictor.init_chain(label_schema=ranker_config_params.dataset.label_schema)
+
+# Construct the final best prompt with few-shot examples, just like in the training loop.
+best_prompt_text = best_generation_prompt['prompt']
+few_shot_block = generation_pipeline.get_few_shot_examples(max_examples=generation_config_params.few_shot_examples)
+final_best_prompt = best_prompt_text + "\n\n" + few_shot_block
+
+# --- Run Validation and Print Results ---
+initial_score, best_score, comparison_examples = validate_and_compare(
+    initial_prompt,
+    final_best_prompt,
+    validation_dataset,
+    llm,
+    classifier_predictor,
+    ranker_predictor
+)
+
+print(f"\n--- Final Scores ---")
+print(f"Initial Prompt Score: {initial_score:.4f}")
+print(f"Best Prompt Score: {best_score:.4f}")
+print(f"Score Improvement (Best - Initial): {best_score - initial_score:.4f}")
+
+print("\n--- Comparison Examples ---")
+for i, example in enumerate(comparison_examples):
+    print(f"--- Example {i+1} ---")
+    print(f"User Input: {example['user_input']}")
+    print(f"Output (Initial Prompt): {example['initial_output']}")
+    print(f"Output (Best Prompt): {example['best_output']}\n")
+
