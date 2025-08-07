@@ -83,10 +83,10 @@ class Eval:
         # 添加調試信息
         print(f"🔍 large_error_to_str 調試信息:")
         print(f"  - 總錯誤數量: {len(error_df)}")
-        print(f"  - 錯誤 DataFrame 欄位: {error_df.columns.tolist()}")
-        if len(error_df) > 0:
-            print(f"  - 錯誤樣本:")
-            print(error_df)
+        # print(f"  - 錯誤 DataFrame 欄位: {error_df.columns.tolist()}")
+        # if len(error_df) > 0:
+        #     print(f"  - 錯誤樣本:")
+        #     print(error_df)
         
         label_schema = error_df['annotation'].unique()
         if self.score_function_name == 'ranking':
@@ -155,7 +155,7 @@ class Eval:
         elif self.score_function_name == 'ranking':
             prompt_input['labels'] = self.label_schema
             prompt_input['confusion_matrix'] = "N/A for ranking tasks."
-            print('prompt_input : ',prompt_input)
+            # print('prompt_input : ',prompt_input)
         analysis = self.analyzer.invoke(prompt_input)
 
         self.history.append({'prompt': prompt, 'score': self.mean_score,
@@ -168,9 +168,9 @@ class Eval:
         """
         df = self.dataset
         print(f"🔍 extract_errors 調試信息:")
-        print(f"  - 總樣本數量: {len(df)}")
-        print(f"  - 樣本分數分布: {df['score']}")
-        print(f"  - 錯誤閾值: {self.error_threshold}")
+        # print(f"  - 總樣本數量: {len(df)}")
+        # print(f"  - 樣本分數分布: {df['score']}")
+        # print(f"  - 錯誤閾值: {self.error_threshold}")
         
         # 提取錯誤樣本（分數小於閾值的樣本）
         err_df = df[df['score'] < self.error_threshold]

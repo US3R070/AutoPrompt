@@ -117,9 +117,9 @@ parser.add_argument('--prompt',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
-parser.add_argument('--num_classifier_steps', default=1, type=int, help='Number of iterations for classifier')
-parser.add_argument('--num_ranker_steps', default=1, type=int, help='Number of iterations for ranker')
-parser.add_argument('--num_generation_steps', default=2, type=int, help='Number of iterations for generation')
+parser.add_argument('--num_classifier_steps', default=5, type=int, help='Number of iterations for classifier')
+parser.add_argument('--num_ranker_steps', default=10, type=int, help='Number of iterations for ranker')
+parser.add_argument('--num_generation_steps', default=5, type=int, help='Number of iterations for generation')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
 opt = parser.parse_args()
@@ -242,7 +242,7 @@ best_generation_prompt = generation_pipeline.run_pipeline(opt.num_generation_ste
 # 新增：為最佳提示詞添加 few-shot 範例，並將其儲存起來
 few_shot_block = generation_pipeline.get_few_shot_examples(max_examples=generation_config_params.few_shot_examples)
 if few_shot_block:
-    best_generation_prompt['prompt'] += "\n\n" + few_shot_block + "\n---\nInput:\n"
+    best_generation_prompt['prompt'] += "\n\n" + few_shot_block 
     best_generation_prompt['few_shot_examples'] = few_shot_block
 
 print('\033[92m' + 'Calibrated prompt score:', str(best_generation_prompt['score']) + '\033[0m')
