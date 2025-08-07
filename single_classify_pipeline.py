@@ -115,7 +115,7 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
             self.log_and_print('Dataset is empty generating initial samples')
             self.generate_initial_samples()
             generated = True
-        print("self.dataset.records : ",self.dataset.records)
+        # print("self.dataset.records : ",self.dataset.records)
         if self.config.use_wandb:
             cur_batch = self.dataset.get_leq(self.batch_id)
             random_subset = cur_batch.sample(n=min(10, len(cur_batch)))[['text']]

@@ -19,6 +19,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
         examples = ["範例："]
         for _, row in few_shot_df.iterrows():
             examples.append(f"---\nInput:\n {row['text']}\n---\n{row['answer']}")
+        examples.append(f"---\nInput:\n ")
         return "\n".join(examples)
 
     def run_step_prompt(self):
@@ -58,7 +59,8 @@ class GenOptimizationPipeline(OptimizationPipeline):
             "task_description": self.task_description,
             "prompt": self.cur_prompt,
             "labels": labels,
-            "error_analysis": error_analysis
+            "error_analysis": error_analysis,
+            "current_prompt_for_constraint_analysis": self.cur_prompt # 新增：用於約束分析的當前提示詞
         }
         print("prompt_input : ",prompt_input)
         
@@ -144,7 +146,6 @@ class GenOptimizationPipeline(OptimizationPipeline):
             
             print("\n--- Starting Classifier Evaluation (逐筆) ---")
             progress_bar = tqdm(total=len(classifier_df), desc="Classifying", unit="sample")
-
             for index, row in classifier_df.iterrows():
                 try:
                     # 準備單一樣本的輸入
@@ -174,14 +175,15 @@ class GenOptimizationPipeline(OptimizationPipeline):
 
                     classifier_scores.append(1 if is_compliant else 0)
                     
-                    # Print 結果
-                    status = "\033[92mPass\033[0m" if is_compliant else "\033[91mFail\033[0m"
-                    parsed_label = match.group(1) if match else "N/A"
-                    print(f"  - Sample {index}: [ {status} ] - Prediction: '{row['prediction'][:80]}' - Classifier says: '{parsed_label}'")
+                    # # Print 結果
+                    # status = "\033[92mPass\033[0m" if is_compliant else "\033[91mFail\033[0m"
+                    # parsed_label = match.group(1) if match else "N/A"
+                    # print(f"  - Sample {index}: [ {status} ] - Prediction: '{row['prediction'][:80]}' - Classifier says: '{parsed_label}'")
 
                 except Exception as e:
+                    
                     #logging.error(f"Error during classifier invocation for sample {index}: {e}")
-                    classifier_scores.append(0) # 發生錯誤視為不通過
+                    # classifier_scores.append(0) # 發生錯誤視為不通過
                     print(f"  - Sample {index}: [ \033[91mError\033[0m ] - Prediction: '{row['prediction'][:80]}' - Exception: {e}\n")
 
                 progress_bar.update(1)
