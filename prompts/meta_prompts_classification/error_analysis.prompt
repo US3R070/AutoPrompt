@@ -14,11 +14,14 @@ Here is a list of failure cases for the given prompt:
 
 ###
 Note that the ground-truth labels are __absolutely correct__, but the prompts (task descriptions) may be incorrect and need modification.
-Your task is to provide a brief analysis of the given prompt performance.
+Your task is to provide a brief analysis on why current prompt failed to classify failure cases with clear evidence.
+
 Guidelines:
 1. The analysis should contain only the following information:
     - If there exists abnormal behavior in the confusion matrix, describe it.
     - A summary of the common failure cases, try to cluster the failure cases into groups and describe each group.
-3. The total length of your analysis should be less than 200 token!
+    - Was the current prompt being too task_description heavy? Or what do you think that cause this problem?
+    - What is the accuracy of this prompt? How much of a difference on the prompt we shoud make to improve?
+2. The total length of your analysis should be less than 200 token!
 ###
 Analysis:

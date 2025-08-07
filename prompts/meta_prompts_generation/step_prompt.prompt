@@ -12,7 +12,15 @@ Your task is to generate:
 1. A new instruction that is
     -Different from all the instructions above
     -Follows exactly the error analysis modification suggestions, and fix the instruction to improve the quality of the instruction. 
-    -Has a higher score than all the instructions above.
+    -If the history prompt have clear constraint about generated content, the new prompt MUST include all exact constraints.
+        For example:
+        - Template compliance requirements (if mentioned)
+        - Length restrictions (if specified)
+        - Content restrictions (if explicitly stated)
+        - Format requirements (if clearly defined)
+        - Specific rule violations (if explicitly prohibited)
+        - Clear Examples (if given)
+        -...
 2. The predicted score of this instructions
 
 You must adhere the error analysis instructions! even in case it seems there is a contradiction between these instructions, and the task. The error analysis was evaluate by an expert ranker, thus represent the exact intent of the task.

@@ -18,7 +18,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
         few_shot_df = few_shot_df.head(max_examples)
         examples = ["範例："]
         for _, row in few_shot_df.iterrows():
-            examples.append(f"\n###User input:\n{row['text']}\n###Model prediction:\n{row['answer']}")
+            examples.append(f"---\nInput:\n {row['text']}\n---\n{row['answer']}")
         return "\n".join(examples)
 
     def run_step_prompt(self):
@@ -148,7 +148,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
             for index, row in classifier_df.iterrows():
                 try:
                     # 準備單一樣本的輸入
-                    sample_input = f"###User input:\n{row['text']}\n####model prediction:\n{row['prediction']}"
+                    sample_input = f"---\nInput:\n {row['text']}\n---\n{row['answer']}"
                     
                     # 將 instruction、few-shot 和當前樣本的輸入手動組合成完整的 prompt
                     final_prompt = f"{full_prompt_template}\n\n{sample_input}"
@@ -192,26 +192,33 @@ class GenOptimizationPipeline(OptimizationPipeline):
             classifier_scores = [1] * len(testdata)  # 如果沒有classifier配置，預設為通過
         
         # Ranker 評估
-        ranker_scores = []
-        ranker_estimator = LLMEstimator(self.eval.function_params)
-        ranker_estimator.init_chain(self.eval.function_params.label_schema)
+        ranker_scores = [1] * len(testdata)  # 初始化所有樣本的 ranker 分數為 1
         
-        # 創建ranker評估用的dataframe
-        ranker_df = testdata.copy()
-        ranker_df['text'] = ranker_df.apply(lambda row: f"###User input:\n{row['text']}\n####model prediction:\n{row['prediction']}", axis=1)
+        # 篩選出 classifier 評估為 1 的樣本，這些才需要進行 ranker 評估
+        passed_classifier_indices = [i for i, score in enumerate(classifier_scores) if score == 1]
         
-        # 使用ranker評估
-        ranker_results = ranker_estimator.apply_dataframe(ranker_df)
-        
-        for i, row in ranker_results.iterrows():
-            ranker_result = row['prediction']
-            # 提取分數
-            try:
-                score = int(ranker_result.strip())
-                score = max(1, min(5, score))  # 確保分數在1-5範圍內
-            except:
-                score = 1  # 預設分數
-            ranker_scores.append(score)
+        if passed_classifier_indices:
+            ranker_estimator = LLMEstimator(self.eval.function_params)
+            ranker_estimator.init_chain(self.eval.function_params.label_schema)
+            
+            # 創建 ranker 評估用的 dataframe，只包含通過 classifier 的樣本
+            ranker_df = testdata.iloc[passed_classifier_indices].copy()
+            ranker_df['text'] = ranker_df.apply(lambda row: f"---\nInput:\n {row['text']}\n---\n{row['answer']}", axis=1)
+            
+            print("\n--- Starting Ranker Evaluation (Batch) ---")
+            ranker_results = ranker_estimator.apply_dataframe(ranker_df)
+            print("--- Ranker Evaluation Finished ---\n")
+
+            # 將 ranker 結果映射回原始的 ranker_scores 列表
+            for i, row in ranker_results.iterrows():
+                original_index = row['id'] # 假設 ranker_df 的 id 欄位保留了原始 testdata 的索引
+                ranker_result = row['prediction']
+                try:
+                    score = int(ranker_result.strip())
+                    score = max(1, min(5, score))  # 確保分數在1-5範圍內
+                except ValueError:
+                    score = 1  # 預設分數
+                ranker_scores[original_index] = score
         
         # 計算綜合分數：如果classifier不通過，直接給1分；否則使用ranker分數
         combined_scores = []
@@ -263,10 +270,53 @@ class GenOptimizationPipeline(OptimizationPipeline):
             logging.info('Skipping annotator for initial dataset (batch_id=0).')
 
         self.predictor.cur_instruct = self.cur_prompt
-        logging.info('Running Predictor')
-        records = self.predictor.apply(self.dataset, self.batch_id, leq=True)
+        logging.info('Running Predictor (raw prompt + single generation with template)')
         
-        self.dataset.update(records)
+        # 獲取當前批次的數據
+        current_records_df = self.dataset.get_leq(self.batch_id).copy()
+        
+        # 初始化 predictor 的 chain (如果尚未初始化)
+        if self.predictor.chain is None:
+            self.predictor.init_chain(self.dataset.label_schema)
+
+        # 獲取 LLM 實例
+        llm = self.predictor.chain.llm
+        
+        # 定義 PromptTemplate
+        from langchain_core.prompts import PromptTemplate
+        template = PromptTemplate.from_template("{prompt}---\nInput: {user_input}\n---")
+        
+        # 逐筆處理數據，使用 raw prompt 進行生成
+        from tqdm import tqdm
+        updated_predictions = []
+        print("\n--- Starting Generation (逐筆) ---")
+        for index, row in tqdm(current_records_df.iterrows(), total=len(current_records_df), desc="Generating Predictions"):
+            try:
+                # 組合 prompt 和 user_input
+                full_input = template.invoke({"prompt": self.cur_prompt, "user_input": row['text']})
+                
+                # 調用 LLM 進行生成
+                response = llm.invoke(full_input)
+                
+                # 從回應中提取 content 欄位
+                if hasattr(response, 'content'):
+                    prediction = response.content
+                else:
+                    prediction = str(response) # Fallback if content attribute is not found
+                
+                updated_predictions.append({'id': row['id'], 'prediction': prediction})
+            except Exception as e:
+                logging.error(f"Error during generation for sample {row['id']}: {e}")
+                updated_predictions.append({'id': row['id'], 'prediction': ''}) # 發生錯誤時給空字串或預設值
+        print("--- Generation Finished ---\n")
+
+        # 將更新後的預測結果合併回原始數據集
+        for pred_data in updated_predictions:
+            self.dataset.records.loc[self.dataset.records['id'] == pred_data['id'], 'prediction'] = pred_data['prediction']
+
+        # 由於我們直接更新了 self.dataset.records，這裡不需要再次調用 self.dataset.update(records)
+        # 但為了保持一致性，可以確保 self.dataset.records 已經包含了所有更新
+        # self.dataset.update(self.dataset.records) # 這行可能不需要，取決於 dataset 內部實現
 
         # --- 新增：列印生成的 題目和答案 配對 ---
         print("\n--- Generated Q&A Pairs ---")

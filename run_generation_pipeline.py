@@ -103,7 +103,7 @@ parser.add_argument('--task_description',
                     required=False, type=str, help='Describing the task')
 parser.add_argument('--prompt',
                     default=
-                    """你是一個短句回答者，你有幾個模板回復可以選，從模板中的name中選擇一個語意最適合的來回復對方
+                    """你是一個回答者，你有幾個模板回復可以選，從模板中的name中選擇一個語意最適合的來回復對方
                     注意，目的在回復消息，不是重複短句的內容
                     ---
                     短句 : 誰會想在凌晨3點吃美味蟹堡
@@ -238,6 +238,13 @@ if opt.load_dump != '':
     generation_pipeline.load_state(os.path.join(opt.load_dump, 'generator'))
 
 best_generation_prompt = generation_pipeline.run_pipeline(opt.num_generation_steps)
+
+# 新增：為最佳提示詞添加 few-shot 範例，並將其儲存起來
+few_shot_block = generation_pipeline.get_few_shot_examples(max_examples=generation_config_params.few_shot_examples)
+if few_shot_block:
+    best_generation_prompt['prompt'] += "\n\n" + few_shot_block + "\n---\nInput:\n"
+    best_generation_prompt['few_shot_examples'] = few_shot_block
+
 print('\033[92m' + 'Calibrated prompt score:', str(best_generation_prompt['score']) + '\033[0m')
 print('\033[92m' + 'Calibrated prompt:', best_generation_prompt['prompt'] + '\033[0m')
 
@@ -376,9 +383,7 @@ ranker_predictor = give_estimator(ranker_predictor_obj)
 ranker_predictor.init_chain(label_schema=ranker_config_params.dataset.label_schema)
 
 # Construct the final best prompt with few-shot examples, just like in the training loop.
-best_prompt_text = best_generation_prompt['prompt']
-few_shot_block = generation_pipeline.get_few_shot_examples(max_examples=generation_config_params.few_shot_examples)
-final_best_prompt = best_prompt_text + "\n\n" + few_shot_block
+final_best_prompt = best_generation_prompt['prompt']
 
 # --- Run Validation and Print Results ---
 initial_score, best_score, comparison_examples = validate_and_compare(
