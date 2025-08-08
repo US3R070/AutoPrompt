@@ -171,7 +171,7 @@ class RnkOptimizationPipeline(OptimizationPipeline):
         records = self.predictor.apply(self.dataset, self.batch_id)
         self.dataset.update(records)
         
-        print("self.dataset.records['prediction'] : ",self.dataset.records['prediction'])
+        # print("self.dataset.records['prediction'] : ",self.dataset.records['prediction'])
         
         self.eval.dataset = self.dataset.get_leq(self.batch_id)
         self.eval.eval_score()

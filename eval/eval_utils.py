@@ -86,7 +86,7 @@ def set_classifier_then_ranker_function(classifier_params, ranker_params):
                 # 步驟2: 根據 classifier 結果決定評分
                 if classifier_result.lower() == 'true':
                     # 符合要求，用 ranker 評分
-                    ranker_input = f"###User input:\n{row['text']}\n####model prediction:\n{row['prediction']}"
+                    ranker_input = f"---\nInput:\n {row['text']}\n---Model Output\n{row['answer']}"
                     ranker_response = ranker.llm.invoke(ranker_input)
                     
                     # 處理 ranker 回應

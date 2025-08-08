@@ -37,7 +37,7 @@ def process_dataset(config_params, output_dir, filename, type='ranker'):
             'batch_id': 0
         }
         if type == 'ranker':
-            df['text'] = df.apply(lambda row: f"###User input:\n{row['text']}\n####model prediction:\n{row['answer']}", axis=1)
+            df['text'] = df.apply(lambda row: f"---\nInput:\n {row['text']}\n---\n{row['answer']}", axis=1)
             # df['text'] = (df['answer'] if 'answer' in df.columns else '')
             df = df[df['label'] != 1]
             df['annotation'] = (df['label'] if 'label' in df.columns else pd.NA)
@@ -53,7 +53,7 @@ def process_dataset(config_params, output_dir, filename, type='ranker'):
             df['is_synthetic'] = False
         elif type == 'classifier':
             # Classifier特殊預處理：將label為1分的標記為False，其他標記為True
-            df['text'] = df.apply(lambda row: f"###User input:\n{row['text']}\n####model prediction:\n{row['answer']}", axis=1)
+            df['text'] = df.apply(lambda row: f"---\nInput:\n {row['text']}\n---Model Output:\n{row['answer']}", axis=1)
             
             # 預處理label：1分 -> False，其他 -> True
             if 'label' in df.columns:
@@ -118,7 +118,7 @@ parser.add_argument('--prompt',
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
 parser.add_argument('--num_classifier_steps', default=5, type=int, help='Number of iterations for classifier')
-parser.add_argument('--num_ranker_steps', default=10, type=int, help='Number of iterations for ranker')
+parser.add_argument('--num_ranker_steps', default=5, type=int, help='Number of iterations for ranker')
 parser.add_argument('--num_generation_steps', default=5, type=int, help='Number of iterations for generation')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
@@ -199,40 +199,78 @@ print("=" * 50)
 print("步驟3: Generation - 生成結果")
 print("=" * 50)
 
+# --- 新增：從label=5的資料創建並儲存標準輸出模板 ---
+def create_and_save_golden_template(dataset_path, output_dir):
+    """
+    從指定資料集中篩選 label 為 5 的資料，
+    提取其 'answer' 作為黃金模板，並儲存至檔案。
+    同時返回該模板內容供後續流程使用。
+    """
+    # 根據使用者要求，模板檔案直接儲存在 dump/ 底下
+    template_path = Path(output_dir) / 'generation_output_template.txt'
+    
+    if not Path(dataset_path).is_file():
+        print(f"資料集檔案不存在於 {dataset_path}，無法建立標準模板。")
+        return "" # 返回空字串，避免後續流程出錯
+    
+    try:
+        df = pd.read_csv(dataset_path)
+        if 'label' not in df.columns or 'answer' not in df.columns:
+            print("資料集必須包含 'label' 和 'answer' 欄位才能建立標準模板。")
+            return ""
+
+        # 篩選 label 為 '5' 的資料 (轉換為字串以確保比對正確)
+        golden_samples = df[df['label'].astype(str).str.strip() == '5']
+        
+        if golden_samples.empty:
+            print("在資料集中找不到 label 為 '5' 的樣本，無法建立標準模板。")
+            return ""
+
+        # 提取第一筆符合條件的 'answer' 作為模板
+        golden_template = golden_samples['answer'].iloc[0]
+        
+        # 建立目錄並寫入檔案
+        template_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(template_path, 'w', encoding='utf-8') as f:
+            f.write(golden_template)
+            
+        print(f"已成功從 label=5 的資料建立標準輸出模板，並儲存至: {template_path}")
+        
+        # 返回模板內容，供 generation pipeline 用於 error analysis
+        return golden_template
+
+    except Exception as e:
+        print(f"建立標準模板時發生錯誤: {e}")
+        return ""
+
+# 使用 classifier 的 dataset 來生成格式定義，因為它包含了原始的 answer 和 label
+# output_dir 直接使用 opt.output_dump (即 'dump/')
+output_format_definition = create_and_save_golden_template(
+    dataset_path=classifier_config_params.dataset.records_path, 
+    output_dir=opt.output_dump
+)
+# --- 標準模板創建結束 ---
+
 # 處理 generation 資料集
 if generation_config_params.dataset.records_path != None:
     process_dataset(generation_config_params, os.path.join(opt.output_dump, 'generator'), 'generation_dataset_processed.csv', type='generator')
 
-# 設置 generation 的評估函數，使用 classifier 和 ranker 的結果
+# 為了讓 OptimizationPipeline 中的 Eval class 能夠成功初始化，我們需要保留 function_params 的設定
 generation_config_params.eval.function_params = ranker_config_params.predictor.config
 generation_config_params.eval.function_params.instruction = best_ranker_prompt['prompt']
 generation_config_params.eval.function_params.label_schema = ranker_config_params.dataset.label_schema
 
-# 添加 classifier 的評估，確保其執行環境與訓練時完全相同
-# 1. 複製分類器訓練時所用的 annotator 設定，這一步確保了 'prompt' (路徑) 等基礎參數被正確設定
-classifier_eval_config = EasyDict(classifier_config_params.annotator.config.copy())
-
-# 2. 從第一步訓練好的結果中，提取優化過的 prompt "內容" 和 few-shot "範例"
-best_prompt_content = best_classifier_prompt['prompt']
-if 'few_shot_examples' in best_classifier_prompt:
-    best_few_shots = best_classifier_prompt['few_shot_examples']
-else:
-    # 如果最佳結果中沒有 few-shot，就沿用 config 中的設定
-    best_few_shots = classifier_eval_config.get('few_shot_examples')
-
-# 3. 將這些優化過的內容，明確地賦值給評估器設定中的相應欄位
-#    'instruction' 用於傳遞 prompt "內容"
-#    'few_shot_examples' 用於傳遞 few-shot "範例"
-#    'prompt' 欄位 (來自第一步的複製) 則保持不變，繼續指向模板檔案路徑
-classifier_eval_config.instruction = best_prompt_content
-classifier_eval_config.few_shot_examples = best_few_shots
-
-# 4. 確保 label_schema 也被正確設定
-classifier_eval_config.label_schema = classifier_config_params.dataset.label_schema
-
-generation_pipeline = GenOptimizationPipeline(generation_config_params, task_description, initial_prompt,
-                                           output_path=os.path.join(opt.output_dump, 'generator'),
-                                           classifier_eval_config=classifier_eval_config)
+generation_pipeline = GenOptimizationPipeline(
+    config=generation_config_params, 
+    task_description=task_description, 
+    initial_prompt=initial_prompt,
+    output_path=os.path.join(opt.output_dump, 'generator'),
+    classifier_config=classifier_config_params,
+    ranker_config=ranker_config_params,
+    best_classifier_prompt=best_classifier_prompt,
+    best_ranker_prompt=best_ranker_prompt,
+    output_format_definition=output_format_definition
+)
 
 if opt.load_dump != '':
     generation_pipeline.load_state(os.path.join(opt.load_dump, 'generator'))
@@ -287,12 +325,12 @@ def validate_and_compare(initial_prompt, best_prompt, dataset, llm, classifier_p
     # Prepare DataFrames for classification
     initial_classifier_df = pd.DataFrame([{
         'id': i,
-        'text': f"###User input:\n{data['user_input']}\n####model prediction:\n{data['initial_output']}"
+        'text': f"---\nInput:\n {data['user_input']}\n---Model Output:\n{data['initial_output']}"
     } for i, data in enumerate(generated_data)])
     
     best_classifier_df = pd.DataFrame([{
         'id': i,
-        'text': f"###User input:\n{data['user_input']}\n####model prediction:\n{data['best_output']}"
+        'text': f"---\nInput:\n {data['user_input']}\n---Model Output:\n{data['best_output']}"
     } for i, data in enumerate(generated_data)])
 
     # Run classification with a single progress bar

@@ -5,23 +5,36 @@ You are given the following task description
 Here is the prompt instructions that was given to the model:
 {prompt}
 
-An expert ranker evaluated the model's performance on the given task description.
-and rank according to the following scale: {labels}
+An expert evaluation system analyzed the model's performance. The system uses a two-step process:
+1.  **Classifier**: Checks if the output follows strict formatting rules. If it fails, it receives the lowest score and a "Classifier Failed" feedback.
+2.  **Ranker**: If the format is correct, a ranker evaluates the semantic quality based on this scale: {labels}
 
 The mean score for this prompt is: {accuracy}
+
+---
+**Golden Standard for Output Format**
+To ensure the output format is always correct, here is the golden standard template that the model's output MUST strictly follow.
+Any deviation from this format will result in a "Classifier Failed" error.
+
+```
+{output_format_definition}
+```
+---
+
 ##
-Here is a list of challenging cases for the given prompt and their rank:
+Here is a list of challenging cases for the given prompt, their scores, and feedback from the evaluation system:
 ##Challenging Cases:
 {failure_cases}
 
 ###
-Note that the ranker labels are __absolutely correct__, but the prompts (task descriptions) may be incorrect and need modification.
-Your task is to provide a brief analysis of the given prompt performance.
+Note that the evaluator's feedback is __absolutely correct__. The prompt (task description) may be incorrect and need modification.
+Your task is to provide a brief analysis of the given prompt's performance.
 
 Guidelines:
-1. The analysis should contain only the following information:
-    - A summary of the common mistakes of the prompt and the ways he can be improve his generation, try to cluster the failure cases into groups and describe each group.
-    - What do you think is the root cause of these failure cases, and how much the prompt should change?
-2. The total length of your analysis should be less than 200 token!
+1. The analysis should contain the following information:
+    - A summary of the common mistakes. Pay close attention to the `feedback` column. If you see "Classifier Failed", it means the output format is wrong. This is a high-priority issue to fix. **You must refer to the "Golden Standard for Output Format" above to guide your correction.**
+    - Cluster the failure cases into groups. For example, one group for formatting errors (from the classifier) and other groups for semantic errors (from the ranker).
+    - For each group, explain the root cause of the failure and suggest how the prompt should be changed to fix it.
+2. The total length of your analysis should be less than 200 tokens!
 ###
 Analysis:

@@ -12,7 +12,6 @@ from dataset.base_dataset import DatasetBase
 class ResOptimizationPipeline(OptimizationPipeline):
     def __init__(self, *args, meta_chain=None, few_shot_selector=None, **kwargs):
         super().__init__(*args, **kwargs)
-        # self.reasoner = reasoner  # 註解掉 Reasoner
         if meta_chain is not None:
             self.meta_chain = meta_chain  # 只有在傳入 meta_chain 時才覆蓋
         self.few_shot_selector = few_shot_selector

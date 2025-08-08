@@ -156,6 +156,8 @@ class DatasetBase:
         """
         txt_res = '##\n'
         for i, row in records.iterrows():
+            # 在 generation 流程中，'text' 欄位應只包含用戶的原始輸入
+            # 'answer' 欄位包含模型的回應，這裡我們不應包含它
             txt_res += f"Sample:\n {row.text}\n#\n"
         return txt_res
 
