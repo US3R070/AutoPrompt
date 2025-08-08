@@ -2,12 +2,77 @@ from optimization_pipeline import OptimizationPipeline
 import logging
 import json
 import pandas as pd
+from estimator import give_estimator
+import numpy as np
 
 class GenOptimizationPipeline(OptimizationPipeline):
-    def __init__(self, *args, classifier_eval_config=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.classifier_eval_config = classifier_eval_config
+    def __init__(self, config, task_description, initial_prompt, output_path, classifier_config, ranker_config, best_classifier_prompt, best_ranker_prompt,output_format_definition, **kwargs):
+        super().__init__(config, task_description, initial_prompt, output_path, **kwargs)
+        self.output_format_definition = output_format_definition
         self.prompt_for_history = self.cur_prompt
+
+        # Setup Classifier
+        self.classifier_predictor_obj = classifier_config.predictor
+        self.classifier_predictor_obj.config.instruction = best_classifier_prompt['prompt']
+        if 'few_shot_examples' in best_classifier_prompt:
+            self.classifier_predictor_obj.config.few_shot_examples = best_classifier_prompt['few_shot_examples']
+        self.classifier_predictor = give_estimator(self.classifier_predictor_obj)
+        self.classifier_predictor.init_chain(label_schema=classifier_config.dataset.label_schema)
+        
+        # Setup Ranker
+        self.ranker_predictor_obj = ranker_config.predictor
+        self.ranker_predictor_obj.config.instruction = best_ranker_prompt['prompt']
+        if 'few_shot_examples' in best_ranker_prompt:
+            self.ranker_predictor_obj.config.few_shot_examples = best_ranker_prompt['few_shot_examples']
+        self.ranker_predictor = give_estimator(self.ranker_predictor_obj)
+        self.ranker_predictor.init_chain(label_schema=ranker_config.dataset.label_schema)
+
+    def _evaluate_generation_step(self):
+        records = self.dataset.get_leq(self.batch_id)
+
+        # --- Step 1: Classification ---
+        classifier_df_data = []
+        for i, record in records.iterrows():
+            classifier_df_data.append({
+                'id': record['id'],
+                'text': f"---\nInput:\n {record['text']}\n---Model Output\n{record['prediction']}"
+            })
+        
+        classifier_df = pd.DataFrame(classifier_df_data)
+        class_results = self.classifier_predictor.apply_dataframe(classifier_df)
+
+        # --- Step 2: Ranking (for those that passed classification) ---
+        if 'score' not in self.dataset.records.columns:
+            self.dataset.records['score'] = 1.0
+        if 'feedback' not in self.dataset.records.columns:
+            self.dataset.records['feedback'] = ''
+        
+        ranker_df_data = []
+        ranker_indices_map = {} 
+        
+        for i, row in class_results.iterrows():
+            original_id = row['id']
+            if str(row['prediction']).lower() == 'true':
+                ranker_indices_map[len(ranker_df_data)] = original_id
+                original_record = records[records['id'] == original_id].iloc[0]
+                ranker_df_data.append({
+                    'id': len(ranker_df_data),
+                    'text': f"---\nInput:\n {original_record['text']}\n---Model Output:\n{original_record['prediction']}"
+                })
+            else:
+                self.dataset.records.loc[self.dataset.records['id'] == original_id, 'score'] = 1.0
+                self.dataset.records.loc[self.dataset.records['id'] == original_id, 'feedback'] = "Classifier Failed: The output format was incorrect and did not follow the rules."
+
+        if ranker_df_data:
+            ranker_df = pd.DataFrame(ranker_df_data)
+            rank_results = self.ranker_predictor.apply_dataframe(ranker_df)
+            
+            for _, rank_row in rank_results.iterrows():
+                original_id = ranker_indices_map[rank_row['id']]
+                self.dataset.records.loc[self.dataset.records['id'] == original_id, 'score'] = float(rank_row['prediction'])
+                self.dataset.records.loc[self.dataset.records['id'] == original_id, 'feedback'] = "" 
+
+        self.eval.mean_score = self.dataset.records[self.dataset.records['batch_id'] <= self.batch_id]['score'].mean()
 
     def get_few_shot_examples(self, max_examples=5):
         # 只取 label==5 的 few-shot 範例
@@ -16,7 +81,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
         few_shot_df = self.dataset.records[self.dataset.records['label'] == 5]
         few_shot_df = few_shot_df.drop_duplicates(subset=['text', 'answer'])
         few_shot_df = few_shot_df.head(max_examples)
-        examples = ["範例："]
+        examples = [""]
         for _, row in few_shot_df.iterrows():
             examples.append(f"---\nInput:\n {row['text']}\n---\n{row['answer']}")
         examples.append(f"---\nInput:\n ")
@@ -42,7 +107,8 @@ class GenOptimizationPipeline(OptimizationPipeline):
                 'task_description': self.task_description,
                 'accuracy': self.eval.mean_score,
                 'prompt': self.cur_prompt,
-                'failure_cases': ''
+                'failure_cases': '',
+                'output_format_definition': self.output_format_definition
             }
             if labels:
                 prompt_input_analysis['labels'] = json.dumps(labels)
@@ -60,7 +126,8 @@ class GenOptimizationPipeline(OptimizationPipeline):
             "prompt": self.cur_prompt,
             "labels": labels,
             "error_analysis": error_analysis,
-            "current_prompt_for_constraint_analysis": self.cur_prompt # 新增：用於約束分析的當前提示詞
+            "current_prompt_for_constraint_analysis": self.cur_prompt, # 新增：用於約束分析的當前提示詞
+            "output_format_definition": self.output_format_definition # 新增：將黃金模板作為參考傳遞
         }
         print("prompt_input : ",prompt_input)
         
@@ -120,130 +187,6 @@ class GenOptimizationPipeline(OptimizationPipeline):
             new_samples = self.dataset.remove_duplicates(new_samples)
             self.dataset.add(new_samples, self.batch_id)
 
-    def evaluate_with_classifier_and_ranker(self):
-        """使用classifier和ranker進行評估"""
-        from utils.llm_chain import get_llm
-        from estimator.estimator_llm import LLMEstimator
-        import re
-        
-        testdata = self.dataset.get_leq(self.batch_id)
-        
-        # Classifier 評估 (改為逐筆 invoke 並顯示進度)
-        classifier_scores = []
-        if self.classifier_eval_config:
-            from tqdm import tqdm
-            classifier_estimator = LLMEstimator(self.classifier_eval_config)
-            classifier_estimator.init_chain(self.classifier_eval_config.label_schema)
-            
-            # 根據評估設定，直接獲取 LLM 實例，這才是正確的做法
-            classifier_llm = get_llm(self.classifier_eval_config.llm)
-            
-            classifier_df = testdata.copy()
-            
-            # 獲取包含指令和 few-shot 的完整 prompt 內容
-            # 這是分類器能正確運作的關鍵
-            full_prompt_template = self.classifier_eval_config.instruction
-            
-            print("\n--- Starting Classifier Evaluation (逐筆) ---")
-            progress_bar = tqdm(total=len(classifier_df), desc="Classifying", unit="sample")
-            for index, row in classifier_df.iterrows():
-                try:
-                    # 準備單一樣本的輸入
-                    sample_input = f"---\nInput:\n {row['text']}\n---\n{row['answer']}"
-                    
-                    # 將 instruction、few-shot 和當前樣本的輸入手動組合成完整的 prompt
-                    final_prompt = f"{full_prompt_template}\n\n{sample_input}"
-
-                    # 直接使用正確獲取的 llm 實例來 invoke，而不是透過 estimator
-                    response = classifier_llm.invoke(final_prompt)
-                    
-                    # 處理回應
-                    if isinstance(response, dict) and 'text' in response:
-                        classifier_result_text = response['text'].strip().lower()
-                    else:
-                        classifier_result_text = str(response).strip().lower()
-
-                    # 從回應中解析出標籤 (True/False)
-                    label_schema = self.classifier_eval_config.label_schema
-                    pattern = r'(' + '|'.join(re.escape(label) for label in label_schema) + r')'
-                    match = re.search(pattern, classifier_result_text, re.IGNORECASE)
-                    
-                    is_compliant = False
-                    if match:
-                        # 判斷是否為 'True'
-                        is_compliant = match.group(1).lower() == 'true'
-
-                    classifier_scores.append(1 if is_compliant else 0)
-                    
-                    # # Print 結果
-                    # status = "\033[92mPass\033[0m" if is_compliant else "\033[91mFail\033[0m"
-                    # parsed_label = match.group(1) if match else "N/A"
-                    # print(f"  - Sample {index}: [ {status} ] - Prediction: '{row['prediction'][:80]}' - Classifier says: '{parsed_label}'")
-
-                except Exception as e:
-                    
-                    #logging.error(f"Error during classifier invocation for sample {index}: {e}")
-                    # classifier_scores.append(0) # 發生錯誤視為不通過
-                    print(f"  - Sample {index}: [ \033[91mError\033[0m ] - Prediction: '{row['prediction'][:80]}' - Exception: {e}\n")
-
-                progress_bar.update(1)
-            
-            progress_bar.close()
-            print("--- Classifier Evaluation Finished ---\n")
-        else:
-            classifier_scores = [1] * len(testdata)  # 如果沒有classifier配置，預設為通過
-        
-        # Ranker 評估
-        ranker_scores = [1] * len(testdata)  # 初始化所有樣本的 ranker 分數為 1
-        
-        # 篩選出 classifier 評估為 1 的樣本，這些才需要進行 ranker 評估
-        passed_classifier_indices = [i for i, score in enumerate(classifier_scores) if score == 1]
-        
-        if passed_classifier_indices:
-            ranker_estimator = LLMEstimator(self.eval.function_params)
-            ranker_estimator.init_chain(self.eval.function_params.label_schema)
-            
-            # 創建 ranker 評估用的 dataframe，只包含通過 classifier 的樣本
-            ranker_df = testdata.iloc[passed_classifier_indices].copy()
-            ranker_df['text'] = ranker_df.apply(lambda row: f"---\nInput:\n {row['text']}\n---\n{row['answer']}", axis=1)
-            
-            print("\n--- Starting Ranker Evaluation (Batch) ---")
-            ranker_results = ranker_estimator.apply_dataframe(ranker_df)
-            print("--- Ranker Evaluation Finished ---\n")
-
-            # 將 ranker 結果映射回原始的 ranker_scores 列表
-            for i, row in ranker_results.iterrows():
-                original_index = row['id'] # 假設 ranker_df 的 id 欄位保留了原始 testdata 的索引
-                ranker_result = row['prediction']
-                try:
-                    score = int(ranker_result.strip())
-                    score = max(1, min(5, score))  # 確保分數在1-5範圍內
-                except ValueError:
-                    score = 1  # 預設分數
-                ranker_scores[original_index] = score
-        
-        # 計算綜合分數：如果classifier不通過，直接給1分；否則使用ranker分數
-        combined_scores = []
-        for i in range(len(testdata)):
-            if classifier_scores[i] == 0:  # 不符合硬性規定
-                combined_scores.append(1)
-            else:
-                combined_scores.append(ranker_scores[i])
-        
-        # 更新dataset的score
-        for i, row in testdata.iterrows():
-            self.dataset.records.loc[self.dataset.records['id'] == row['id'], 'score'] = combined_scores[i-1] if i > 0 else combined_scores[0]
-        
-        # 計算平均分數
-        mean_score = sum(combined_scores) / len(combined_scores)
-        self.eval.mean_score = mean_score
-        
-        print(f"Classifier 通過率: {sum(classifier_scores)/len(classifier_scores):.2f}")
-        print(f"Ranker 平均分數: {sum(ranker_scores)/len(ranker_scores):.2f}")
-        print(f"綜合平均分數: {mean_score:.2f}")
-        
-        return mean_score
-
     def step(self, current_iter, total_iter):
         self.log_and_print(f'Starting step {self.batch_id}')
         
@@ -260,9 +203,6 @@ class GenOptimizationPipeline(OptimizationPipeline):
                 {"Prompt": f"<p>{self.cur_prompt}</p>", "Samples": random_subset},
                 step=self.batch_id)
 
-        # 只在以下情況執行 annotator：
-        # 1. batch_id > 0 且沒有 ground truth 資料，或
-        # 2. 有新生成的資料 (generated=True)
         if (self.batch_id > 0) or generated:
             logging.info(f'Running annotator on new samples for batch_id: {self.batch_id}')
             self.annotator.cur_instruct = self.cur_prompt
@@ -274,83 +214,76 @@ class GenOptimizationPipeline(OptimizationPipeline):
         self.predictor.cur_instruct = self.cur_prompt
         logging.info('Running Predictor (raw prompt + single generation with template)')
         
-        # 獲取當前批次的數據
         current_records_df = self.dataset.get_leq(self.batch_id).copy()
         
-        # 初始化 predictor 的 chain (如果尚未初始化)
         if self.predictor.chain is None:
             self.predictor.init_chain(self.dataset.label_schema)
 
-        # 獲取 LLM 實例
         llm = self.predictor.chain.llm
         
-        # 定義 PromptTemplate
         from langchain_core.prompts import PromptTemplate
         template = PromptTemplate.from_template("{prompt}---\nInput: {user_input}\n---")
         
-        # 逐筆處理數據，使用 raw prompt 進行生成
         from tqdm import tqdm
         updated_predictions = []
         print("\n--- Starting Generation (逐筆) ---")
         for index, row in tqdm(current_records_df.iterrows(), total=len(current_records_df), desc="Generating Predictions"):
             try:
-                # 組合 prompt 和 user_input
                 full_input = template.invoke({"prompt": self.cur_prompt, "user_input": row['text']})
                 
-                # 調用 LLM 進行生成
                 response = llm.invoke(full_input)
                 
-                # 從回應中提取 content 欄位
                 if hasattr(response, 'content'):
                     prediction = response.content
                 else:
-                    prediction = str(response) # Fallback if content attribute is not found
+                    prediction = str(response)
                 
-                updated_predictions.append({'id': row['id'], 'prediction': prediction})
+                updated_predictions.append({'id': row['id'], 'prediction': prediction, 'user_input': row['text']})
             except Exception as e:
                 logging.error(f"Error during generation for sample {row['id']}: {e}")
-                updated_predictions.append({'id': row['id'], 'prediction': ''}) # 發生錯誤時給空字串或預設值
+                updated_predictions.append({'id': row['id'], 'prediction': '', 'user_input': row['text']})
         print("--- Generation Finished ---\n")
 
-        # 將更新後的預測結果合併回原始數據集
         for pred_data in updated_predictions:
             self.dataset.records.loc[self.dataset.records['id'] == pred_data['id'], 'prediction'] = pred_data['prediction']
 
-        # 由於我們直接更新了 self.dataset.records，這裡不需要再次調用 self.dataset.update(records)
-        # 但為了保持一致性，可以確保 self.dataset.records 已經包含了所有更新
-        # self.dataset.update(self.dataset.records) # 這行可能不需要，取決於 dataset 內部實現
-
-        # --- 新增：列印生成的 題目和答案 配對 ---
         print("\n--- Generated Q&A Pairs ---")
-        # 從更新後的 records DataFrame 中提取 text (題目) 和 prediction (答案)
-        # 我們只關心當前這輪 (leq=True) 生成或更新的樣本
         current_records = self.dataset.get_leq(self.batch_id)
         for index, row in current_records.iterrows():
-            # 確保 prediction 不是 None 或 NaN
             if row['prediction'] and pd.notna(row['prediction']):
                 print(f"  - Q: {row['text']}")
                 print(f"    A: \033[96m{row['prediction']}\033[0m")
                 print("  ---")
         print("--- End of Q&A Pairs ---\n")
-        # --- 結束新增 ---
         
-        self.eval.dataset = self.dataset.get_leq(self.batch_id)
-        
-        # 使用新的評估機制
-        if self.classifier_eval_config:
-            self.evaluate_with_classifier_and_ranker()
-        else:
-            # 如果沒有classifier配置，使用原來的評估方式
-            self.eval.eval_score()
-            for idx, row in self.eval.dataset.iterrows():
-                self.dataset.records.loc[self.dataset.records['id'] == row['id'], 'score'] = row['score']
-        
+        self._evaluate_generation_step()
+             
         logging.info('Calculating Score')
+        self.eval.dataset = self.dataset.get_leq(self.batch_id)
         large_errors = self.eval.extract_errors()
         
         print("self.dataset.records : ",self.dataset.records)
         
-        self.eval.add_history(self.prompt_for_history, self.task_description)
+        # --- Start of Custom Injection Logic ---
+        # Temporarily modify the analyzer's prompt template to include the golden template
+        original_template = self.eval.analyzer.chain.prompt.template
+        try:
+            # Use partial to pre-fill the output_format_definition
+            # This creates a new prompt template with the value already embedded
+            partial_prompt = self.eval.analyzer.chain.prompt.partial(
+                output_format_definition=self.output_format_definition
+            )
+            # Temporarily assign the new, pre-filled prompt to the chain
+            self.eval.analyzer.chain.prompt = partial_prompt
+            
+            # Now, call add_history. It will use the modified prompt.
+            self.eval.add_history(self.prompt_for_history, self.task_description)
+
+        finally:
+            # IMPORTANT: Always restore the original template to avoid side effects
+            self.eval.analyzer.chain.prompt.template = original_template
+        # --- End of Custom Injection Logic ---
+
         if self.config.use_wandb:
             large_errors = large_errors.sample(n=min(6, len(large_errors)))
             correct_samples = self.eval.extract_correct()

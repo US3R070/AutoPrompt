@@ -210,7 +210,7 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
             if i < len(self.dataset.records):
                 self.dataset.records.iloc[i, self.dataset.records.columns.get_loc('prediction')] = pred
         
-        print("self.dataset.records['prediction'] : \n",self.dataset.records['prediction'])
+        # print("self.dataset.records['prediction'] : \n",self.dataset.records['prediction'])
 
         # 設置eval的dataset並計算分數
         self.eval.dataset = self.dataset.get_leq(self.batch_id)

@@ -86,7 +86,7 @@ class Eval:
         # print(f"  - 錯誤 DataFrame 欄位: {error_df.columns.tolist()}")
         # if len(error_df) > 0:
         #     print(f"  - 錯誤樣本:")
-        #     print(error_df)
+        print(error_df)
         
         label_schema = error_df['annotation'].unique()
         if self.score_function_name == 'ranking':
