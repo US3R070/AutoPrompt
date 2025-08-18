@@ -6,9 +6,10 @@ dataset:
     semantic_sampling: False
 
 llm:
-    name: 'gpt-4o'
-    type: 'OpenAI'
-    temperature: 0.8
+    type: 'Ollama'
+    name: 'gemma3:12b'
+    base_url: 'https://is-alvin-ollama.intersense.work/'
+    temperature: 0.0
 
 meta_prompts:
     folder: 'prompts/meta_prompts_classification'
@@ -24,11 +25,12 @@ predictor:
     method: 'llm'
     config:
         llm:
-            type: 'OpenAI'
-            name: 'gpt-4o-mini'
+            type: 'Ollama'
+            name: 'gemma3:4b'
+            base_url: 'https://is-alvin-ollama.intersense.work/'
             temperature: 0.0
         num_workers: 2
-        prompt: 'prompts/predictor_completion/classifier_prediction.prompt'
+        prompt: 'prompts/predictor_completion/prediction.prompt'
         mini_batch_size: 1
         mode: 'prediction'
 

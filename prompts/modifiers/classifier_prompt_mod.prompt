@@ -12,7 +12,7 @@ Guidelines:
    - Specific rule violations (if explicitly prohibited)
 4. DO NOT infer or add additional constraints that are not explicitly mentioned in the original prompt.
 5. The instruction should be a classification task that evaluates whether the Model Output complies with ONLY the constraints that are explicitly present in the original prompt.
-6. The generated instruction must NOT evaluate Answer completeness, quality, semantic appropriateness or relevance.
+6. **DO NOT** evaluate Answer completeness, semantic appropriateness or relevance.
 
 IMPORTANT: The evaluation should focus ONLY on the Model Output, not the User Input. The User Input is provided for context but should not be evaluated for compliance.
 The instruction should clearly separate the evaluation of User Input (for context) and Model Output (for hard constraint checking).
@@ -21,3 +21,5 @@ The instruction should clearly separate the evaluation of User Input (for contex
 Input generative instruction: {prompt}
 #####
 Rephrased classification instruction: 
+
+DO NOT provide any further explainations!!

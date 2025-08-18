@@ -8,34 +8,39 @@ dataset:
     max_samples: 20
     semantic_sampling: False
 
-predictor:
-    method : 'llm'
-    config:
-        prompt: 'prompts/predictor_completion/prediction_generation.prompt'
-        mini_batch_size: 1
-        llm:
-            type: 'OpenAI'
-            name: 'gpt-4o-mini' #'gpt-3.5-turbo-1106'
-            temperature: 1.0
-        num_workers: 7
 # predictor:
-#     method: 'llm'
+#     method : 'llm'
 #     config:
-#         llm:
-#             type: 'Ollama'
-#             name: 'qwen3:8b'
-#             base_url: 'https://ollama.havenook.com'
-#             # model_kwargs: {"temperature": 0}
-#             temperature: 0.0
-#         num_workers: 2
-#         prompt: 'prompts/predictor_completion/prediction.prompt'
+#         prompt: 'prompts/predictor_completion/prediction_generation.prompt'
 #         mini_batch_size: 1
-#         mode: 'prediction'
+#         llm:
+#             type: 'OpenAI'
+#             name: 'gpt-4o-mini' #'gpt-3.5-turbo-1106'
+#             temperature: 1.0
+#         num_workers: 7
+predictor:
+    method: 'llm'
+    config:
+        llm:
+            type: 'Ollama'
+            name: 'gemma3:12b'
+            base_url: 'https://is-alvin-ollama.intersense.work/'
+            temperature: 0.0
+        num_workers: 2
+        prompt: 'prompts/predictor_completion/prediction.prompt'
+        mini_batch_size: 1
+        mode: 'prediction'
+
+# llm:
+#     name: 'gpt-4o-mini' # This is the meta-prompt LLM, it should be a strong model. For example, using GPT-3.5 will cause an error in many cases.
+#     type: 'OpenAI' # Can be OpenAI, Anthropic, Google, Azure
+#     temperature: 0.8
 
 llm:
-    name: 'gpt-4o-mini' # This is the meta-prompt LLM, it should be a strong model. For example, using GPT-3.5 will cause an error in many cases.
-    type: 'OpenAI' # Can be OpenAI, Anthropic, Google, Azure
-    temperature: 0.8
+    type: 'Ollama'
+    name: 'gemma3:12b'
+    base_url: 'https://is-alvin-ollama.intersense.work/'
+    temperature: 0.0
 
 meta_prompts:
     folder: 'prompts/meta_prompts_generation'

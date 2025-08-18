@@ -45,7 +45,7 @@ predictor:
         llm:
             type: 'Ollama'
             name: 'qwen3:8b'
-            base_url: 'https://ollama.havenook.com'
+            base_url: 'https://is-alvin-ollama.intersense.work/'
             # model_kwargs: {"temperature": 0}
             temperature: 0.0
         num_workers: 2

@@ -14,4 +14,4 @@ google:
   GOOGLE_API_KEY: ''
 
 ollama:
-  OLLAMA_BASE_URL: 'https://ollama.havenook.com' 
+  OLLAMA_BASE_URL: 'https://is-alvin-ollama.intersense.work/' 

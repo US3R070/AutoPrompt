@@ -4,5 +4,6 @@ __pycache__/
 /wandb
 .idea/
 dump/
+.env
 config/llm_env.yml
 

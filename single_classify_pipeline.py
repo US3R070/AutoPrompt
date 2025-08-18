@@ -333,18 +333,19 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
             if isinstance(prompt_suggestion, list) and len(prompt_suggestion) == 1:
                 prompt_suggestion = prompt_suggestion[0]['args']
         
-        self.log_and_print(f'Previous prompt score:\n{self.eval.mean_score}\n#########\n')
-        self.log_and_print(f'Get new prompt:\n{prompt_suggestion["prompt"]}')
+        self.log_and_print(f'Previous prompt score:{self.eval.mean_score}#########')
+        print("Inspecting prompt_suggestion:", prompt_suggestion)
+        self.log_and_print(f'Get new prompt:{prompt_suggestion["text"]}')
         self.batch_id += 1
         
         # 更新predictor的cur_instruct
         if hasattr(self.predictor, 'cur_instruct'):
-            self.predictor.cur_instruct = prompt_suggestion['prompt']
+            self.predictor.cur_instruct = prompt_suggestion['text']
         
         if len(self.dataset) < self.config.dataset.max_samples:
             batch_input = {"num_samples": self.config.meta_prompts.samples_generation_batch,
                            "task_description": self.task_description,
-                           "prompt": prompt_suggestion['prompt']}
+                           "prompt": prompt_suggestion['text']}
             batch_inputs = self.generate_samples_batch(batch_input, self.config.meta_prompts.num_generated_samples,
                                                        self.config.meta_prompts.samples_generation_batch)
 
@@ -370,4 +371,4 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
             new_samples = self.dataset.remove_duplicates(new_samples)
             self.dataset.add(new_samples, self.batch_id)
             logging.info('Get new samples')
-        self.cur_prompt = prompt_suggestion['prompt'] 
+        self.cur_prompt = prompt_suggestion['text'] 
