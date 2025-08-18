@@ -18,10 +18,11 @@ This is the analysis of why the last prompt failed. You MUST follow these sugges
 Based on all the information above, generate a new, improved prompt.
 
 The new prompt must:
-    - Be different from all previous prompts.
-    - Strictly follow the suggestions from the error analysis.
-    - Be phrased as a clear classification instruction for the labels: {labels}.
+    1. Strictly follow the suggestions from the error analysis.
+    2. The scale of modification needed must also refer to its previous score.
+        -Lower score (<0.7) requires a larger reconstruction by error analysis.
+        -Higher score (>0.7) requires a much smaller fine tuning to its previous prompt using error analysis.  
+    3. Be phrased as a clear classification instruction for the labels: {labels}.
 
-DO NOT generate anything but only the new prompt!!
-
+DO NOT generate anything but the new prompt!!
 NEW PROMPT:
