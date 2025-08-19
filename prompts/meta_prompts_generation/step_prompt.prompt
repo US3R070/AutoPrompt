@@ -3,11 +3,6 @@ Below are a few suggested instructions for the task and score (mean of the rank)
 {task_description}
 
 ---
-**Golden Standard for Output Format (for Reference Only)**
-This is the target output format that the AI model must produce. Your generated instruction should guide the model to match this format precisely.
-You can reference it to guide your new instruction.
-{output_format_definition}
-
 ## Examples
 {history}
 ######
@@ -21,15 +16,15 @@ Your task is to generate a new instruction based on the error analysis.
 2.  **Follow the Analysis**: The new instruction must follow the suggestions from the `error_analysis` to fix the identified issues.
 3.  **Preserve Constraints**: If the previous prompt had hard constraints (e.g., "You must output a JSON object"), the new instruction MUST preserve them. Analyze the prompt below to identify these constraints.
 
-Current Prompt for Constraint Analysis:
-{current_prompt_for_constraint_analysis}
-
-Identified Hard Constraints (if any, list them here, otherwise state 'None'):
-[META_LLM_IDENTIFIED_CONSTRAINTS]
+**Standard for Output Format**
+This is the target output format that the AI model must produce. Your generated instruction should guide the model to match this format precisely.
+You can reference it to guide your new instruction.
+{output_format_definition}
 
 Ensure the new instruction you generate strictly adheres to and explicitly includes these identified hard constraints.
 
-4.  **Predict the Score**: After generating the instruction, predict its potential score.
-
 You must adhere to the error analysis! The analysis was evaluated by an expert ranker and represents the true intent of the task.
 The new instruction itself doesn't need to comply with the rules listed by the original task_description, but with the insights from the error analysis.
+
+DO NOT generate anything but the new prompt!!
+NEW PROMPT:

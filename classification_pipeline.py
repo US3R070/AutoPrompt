@@ -206,20 +206,27 @@ class ResOptimizationPipeline(OptimizationPipeline):
             prompt_input["labels"] = json.dumps(self.config.dataset.label_schema)
         prompt_suggestion = self.meta_chain.step_prompt_chain.invoke(prompt_input)
         
-        if "NO_THINK" in self.predictor.cur_instruct:
-            prompt_suggestion['prompt'] = prompt_suggestion['prompt']+"\n/NO_THINK"
+        if 'prompt' in prompt_suggestion:
+            new_prompt = prompt_suggestion['prompt']
+        elif 'text' in prompt_suggestion:
+            new_prompt = prompt_suggestion['text']
+        else:
+            raise ValueError("prompt_suggestion 中沒有 'prompt' 或 'text' 鍵")
         
+        if "NO_THINK" in new_prompt:
+            new_prompt = new_prompt+"\n/NO_THINK"
+
         if self.meta_chain.step_prompt_chain.llm_config.type == 'google':
             if isinstance(prompt_suggestion, list) and len(prompt_suggestion) == 1:
                 prompt_suggestion = prompt_suggestion[0]['args']
         
         self.log_and_print(f'Previous prompt score:\n{self.eval.mean_score}\n#########\n')
-        self.log_and_print(f'Get new prompt:\n{prompt_suggestion["prompt"]}')
+        self.log_and_print(f'Get new prompt:\n{new_prompt}')
         self.batch_id += 1
         if len(self.dataset) < self.config.dataset.max_samples:
             batch_input = {"num_samples": self.config.meta_prompts.samples_generation_batch,
                            "task_description": self.task_description,
-                           "prompt": prompt_suggestion['prompt']}
+                           "prompt": new_prompt}
             batch_inputs = self.generate_samples_batch(batch_input, self.config.meta_prompts.num_generated_samples,
                                                        self.config.meta_prompts.samples_generation_batch)
 
@@ -245,4 +252,4 @@ class ResOptimizationPipeline(OptimizationPipeline):
             new_samples = self.dataset.remove_duplicates(new_samples)
             self.dataset.add(new_samples, self.batch_id)
             logging.info('Get new samples')
-        self.cur_prompt = prompt_suggestion['prompt'] 
+        self.cur_prompt = new_prompt 

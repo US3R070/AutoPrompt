@@ -35,7 +35,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
         for i, record in records.iterrows():
             classifier_df_data.append({
                 'id': record['id'],
-                'text': f"---\nInput:\n {record['text']}\n---Model Output\n{record['prediction']}"
+                'text': f"---Input: {record['text']}---Model Output{record['prediction']}"
             })
         
         classifier_df = pd.DataFrame(classifier_df_data)
@@ -57,7 +57,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
                 original_record = records[records['id'] == original_id].iloc[0]
                 ranker_df_data.append({
                     'id': len(ranker_df_data),
-                    'text': f"---\nInput:\n {original_record['text']}\n---Model Output:\n{original_record['prediction']}"
+                    'text': f"---Input: {original_record['text']}---Model Output:{original_record['prediction']}"
                 })
             else:
                 self.dataset.records.loc[self.dataset.records['id'] == original_id, 'score'] = 1.0
@@ -69,8 +69,13 @@ class GenOptimizationPipeline(OptimizationPipeline):
             
             for _, rank_row in rank_results.iterrows():
                 original_id = ranker_indices_map[rank_row['id']]
-                self.dataset.records.loc[self.dataset.records['id'] == original_id, 'score'] = float(rank_row['prediction'])
+                try:
+                    score = float(rank_row['prediction'])
+                except (ValueError, TypeError):
+                    score = 1.0  # Assign a default low score if conversion fails
+                self.dataset.records.loc[self.dataset.records['id'] == original_id, 'score'] = score
                 self.dataset.records.loc[self.dataset.records['id'] == original_id, 'feedback'] = "" 
+            print("self.dataset.records : ",self.dataset.records)
 
         self.eval.mean_score = self.dataset.records[self.dataset.records['batch_id'] <= self.batch_id]['score'].mean()
 
@@ -83,9 +88,9 @@ class GenOptimizationPipeline(OptimizationPipeline):
         few_shot_df = few_shot_df.head(max_examples)
         examples = [""]
         for _, row in few_shot_df.iterrows():
-            examples.append(f"---\nInput:\n {row['text']}\n---\n{row['answer']}")
-        examples.append(f"---\nInput:\n ")
-        return "\n".join(examples)
+            examples.append(f"---\nInput: {row['text']}\n---\n{row['answer']}\n")
+        examples.append(f"---\nInput: ")
+        return "".join(examples)
 
     def run_step_prompt(self):
         # 產生新一輪的 prompt 與合成資料
@@ -100,24 +105,8 @@ class GenOptimizationPipeline(OptimizationPipeline):
             labels = self.config.dataset['label_schema']
         else:
             labels = []
-        # 取得 error_analysis（仿 classification）
-        analysis = None
-        if self.meta_chain is not None and last_history:
-            prompt_input_analysis = {
-                'task_description': self.task_description,
-                'accuracy': self.eval.mean_score,
-                'prompt': self.cur_prompt,
-                'failure_cases': '',
-                'output_format_definition': self.output_format_definition
-            }
-            if labels:
-                prompt_input_analysis['labels'] = json.dumps(labels)
-            if 'confusion_matrix' in last_history[-1]:
-                prompt_input_analysis['confusion_matrix'] = last_history[-1]['confusion_matrix']
-            
-            analysis_result = self.meta_chain.error_analysis.invoke(prompt_input_analysis)
-            analysis = analysis_result['text'] if isinstance(analysis_result, dict) and 'text' in analysis_result else str(analysis_result)
-        error_analysis = analysis or (last_history[-1].get('analysis', '') if last_history else '')
+        # 取得 error_analysis
+        error_analysis = last_history[-1].get('analysis', '') if last_history else ''
         # 新增 few-shot block
         few_shot_block = self.get_few_shot_examples(max_examples=self.config.few_shot_examples)
         prompt_input = {
@@ -129,16 +118,26 @@ class GenOptimizationPipeline(OptimizationPipeline):
             "current_prompt_for_constraint_analysis": self.cur_prompt, # 新增：用於約束分析的當前提示詞
             "output_format_definition": self.output_format_definition # 新增：將黃金模板作為參考傳遞
         }
-        print("prompt_input : ",prompt_input)
+        #print("prompt_input : ",prompt_input)
         
         # 產生新的提示詞，並加入few shot，假如需要NO_THINK則加入NO_THINK
         prompt_suggestion = self.meta_chain.step_prompt_chain.invoke(prompt_input)
-        if "NO_THINK" in self.cur_prompt:
-            self.prompt_for_history = prompt_suggestion['prompt'] + "\n\n" + "NO_THINK"
-        else:
-            self.prompt_for_history = prompt_suggestion['prompt']
         
-        self.cur_prompt = self.prompt_for_history + "\n\n" + few_shot_block
+        print("prompt_suggestion : ",prompt_suggestion)
+        
+        if 'text' in prompt_suggestion:
+            new_prompt = prompt_suggestion['text']
+        elif 'prompt' in prompt_suggestion:
+            new_prompt = prompt_suggestion['prompt']
+        else:
+            raise ValueError("prompt_suggestion 中沒有 'prompt' 或 'text' 鍵")
+        
+        if "NO_THINK" in self.cur_prompt:
+            self.cur_prompt = new_prompt + "\n\n" + "NO_THINK"
+        else:
+            self.cur_prompt = new_prompt
+        
+        self.cur_prompt = self.cur_prompt + "\n\n" + few_shot_block
         self.log_and_print(f'Get new prompt:\n{self.cur_prompt}')
         
         self.batch_id += 1
@@ -146,7 +145,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
             batch_input = {
                 "num_samples": self.config.meta_prompts.samples_generation_batch,
                 "task_description": self.task_description+"\n\n"+"務必用繁體中文生成問題",
-                "prompt": prompt_suggestion['prompt']
+                "prompt": self.cur_prompt
             }
             batch_inputs = self.generate_samples_batch(
                 batch_input,
@@ -222,7 +221,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
         llm = self.predictor.chain.llm
         
         from langchain_core.prompts import PromptTemplate
-        template = PromptTemplate.from_template("{prompt}---\nInput: {user_input}\n---")
+        template = PromptTemplate.from_template("{prompt}---Input: {user_input}---")
         
         from tqdm import tqdm
         updated_predictions = []
@@ -260,7 +259,16 @@ class GenOptimizationPipeline(OptimizationPipeline):
              
         logging.info('Calculating Score')
         self.eval.dataset = self.dataset.get_leq(self.batch_id)
-        large_errors = self.eval.extract_errors()
+        logging.info('Extracting errors based on ranker score <= 3')
+        large_errors = self.eval.dataset[self.eval.dataset['score'] <= 3]
+        self.eval.errors = large_errors  # Set the errors attribute on the eval object
+
+        # Stop if no errors are found after the first iteration
+        if len(large_errors) == 0 and self.batch_id > 0:
+            self.log_and_print('No errors found with score <= 3. The current prompt is considered optimal. Stopping optimization.')
+            self.eval.add_history(self.prompt_for_history, self.task_description)
+            self.save_state()
+            return True
         
         print("self.dataset.records : ",self.dataset.records)
         

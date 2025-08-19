@@ -11,11 +11,16 @@ dataset:
 annotator:
     method: 'llm'
     config:
+        # llm:
+        #     type: 'OpenAI'
+        #     name: 'o4-mini'
+        #     # model_kwargs: {"seed": 220}
+        #     temperature: 1
         llm:
-            type: 'OpenAI'
-            name: 'o4-mini'
-            # model_kwargs: {"seed": 220}
-            temperature: 1
+            type: 'Ollama'
+            name: 'gemma3:27b-it-qat'
+            base_url: 'https://is-alvin-ollama.intersense.work/'
+            temperature: 0.7
         num_workers: 3
         prompt: 'prompts/predictor_completion/annotation.prompt'
         mini_batch_size: 1
@@ -29,15 +34,15 @@ annotator:
 #         workspace: 'admin'
 #         time_interval: 5
 
-reasoner:
-    method: 'llm'
-    config:
-        llm:
-            type: 'OpenAI'
-            name: 'gpt-4o'
-            # model_kwargs: {"seed": 220}
-            temperature: 1
-        num_workers: 3
+# reasoner:
+#     method: 'llm'
+#     config:
+#         llm:
+#             type: 'OpenAI'
+#             name: 'gpt-4o'
+#             # model_kwargs: {"seed": 220}
+#             temperature: 1
+#         num_workers: 3
 
 predictor:
     method: 'llm'
@@ -70,10 +75,15 @@ eval:
     num_boundary_predictions: 0
     error_threshold: 0.5
 
+# llm:
+#     name: 'gpt-4.1'
+#     type: 'OpenAI'
+#     temperature: 1
 llm:
-    name: 'gpt-4.1'
-    type: 'OpenAI'
-    temperature: 1
+    type: 'Ollama'
+    name: 'gemma3:27b-it-qat'
+    base_url: 'https://is-alvin-ollama.intersense.work/'
+    temperature: 0.7
 
 stop_criteria:
     max_usage: 5

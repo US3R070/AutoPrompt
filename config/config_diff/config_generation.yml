@@ -23,7 +23,7 @@ predictor:
     config:
         llm:
             type: 'Ollama'
-            name: 'gemma3:12b'
+            name: 'gemma3:4b-it-qat'
             base_url: 'https://is-alvin-ollama.intersense.work/'
             temperature: 0.0
         num_workers: 2
@@ -38,7 +38,7 @@ predictor:
 
 llm:
     type: 'Ollama'
-    name: 'gemma3:12b'
+    name: 'gemma3:4b-it-qat'
     base_url: 'https://is-alvin-ollama.intersense.work/'
     temperature: 0.0
 

@@ -11,7 +11,7 @@ By hard constraint,
 
 Use these constraints as criterions ONLY if they are explicitly stated in the original prompt.   
 DO NOT infer or add additional constraints that are not explicitly mentioned in the original prompt.
-DO NOT evaluate answer quality, answer appropriateness, semantic relevance, user satisfaction, creativity.
+DO NOT consider any kinds of answer quality, answer appropriateness, semantic relevance, user satisfaction, creativity.
 
 The generated task description must include every explicit information in the input description, focusing on the constraints that need to be checked.
 The generated task description must evaluate whether the generated text follows the specified rules and constraints.

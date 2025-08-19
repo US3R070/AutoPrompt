@@ -47,7 +47,7 @@ class SingleClassifyOptimizationPipeline(OptimizationPipeline):
         latest_score = self.eval.history[-1]['score']
         
         # 如果分數達到 1.0（100% 準確度），則停止
-        if latest_score >= 1.0:
+        if latest_score >= 0.9:
             self.log_and_print(f'🎉 達到完美準確度！分數: {latest_score:.4f}')
             self.log_and_print('Classifier 訓練完成，停止優化。')
             # 確保當前最佳結果被記錄

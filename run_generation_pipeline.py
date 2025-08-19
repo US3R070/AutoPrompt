@@ -117,8 +117,8 @@ parser.add_argument('--prompt',
                     required=False, type=str, help='Prompt to use as initial.')
 parser.add_argument('--load_dump', default='', required=False, type=str, help='In case of loading from checkpoint')
 parser.add_argument('--output_dump', default='dump', required=False, type=str, help='Output to save checkpoints')
-parser.add_argument('--num_classifier_steps', default=5, type=int, help='Number of iterations for classifier')
-parser.add_argument('--num_ranker_steps', default=5, type=int, help='Number of iterations for ranker')
+parser.add_argument('--num_classifier_steps', default=1, type=int, help='Number of iterations for classifier')
+parser.add_argument('--num_ranker_steps', default=1, type=int, help='Number of iterations for ranker')
 parser.add_argument('--num_generation_steps', default=5, type=int, help='Number of iterations for generation')
 parser.add_argument('--has_initial_data', action='store_true', help='資料集是否有初始標註資料（有則 batch_id==0 不做 annotation）')
 
@@ -243,10 +243,11 @@ def create_and_save_golden_template(dataset_path, output_dir):
         print(f"建立標準模板時發生錯誤: {e}")
         return ""
 
-# 使用 classifier 的 dataset 來生成格式定義，因為它包含了原始的 answer 和 label
+# 使用 decider.csv 的 answer 來生成格式定義
 # output_dir 直接使用 opt.output_dump (即 'dump/')
+decider_csv_path = 'dataset/decider.csv'
 output_format_definition = create_and_save_golden_template(
-    dataset_path=classifier_config_params.dataset.records_path, 
+    dataset_path=decider_csv_path,
     output_dir=opt.output_dump
 )
 # --- 標準模板創建結束 ---

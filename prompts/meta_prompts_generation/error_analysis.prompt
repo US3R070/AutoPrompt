@@ -12,13 +12,10 @@ An expert evaluation system analyzed the model's performance. The system uses a 
 The mean score for this prompt is: {accuracy}
 
 ---
-**Golden Standard for Output Format**
+**Standard for Output Format**
 To ensure the output format is always correct, here is the golden standard template that the model's output MUST strictly follow.
 Any deviation from this format will result in a "Classifier Failed" error.
-
-```
 {output_format_definition}
-```
 ---
 
 ##

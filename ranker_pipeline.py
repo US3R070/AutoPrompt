@@ -167,8 +167,7 @@ class RnkOptimizationPipeline(OptimizationPipeline):
         #         self.dataset.records.iloc[i, self.dataset.records.columns.get_loc('prediction')] = pred
 
         # 使用 predictor 進行批次預測
-        testdata = self.dataset.get_leq(self.batch_id)
-        records = self.predictor.apply(self.dataset, self.batch_id)
+        records = self.predictor.apply(self.dataset, self.batch_id, leq=True)
         self.dataset.update(records)
         
         # print("self.dataset.records['prediction'] : ",self.dataset.records['prediction'])
