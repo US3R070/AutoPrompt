@@ -176,9 +176,9 @@ class Eval:
         err_df = df[df['score'] < self.error_threshold]
         print(f"  - 錯誤樣本數量: {len(err_df)}")
         
-        if len(err_df) > 0:
-            print(f"  - 錯誤樣本的 annotation 分布: {err_df['annotation'].value_counts().to_dict()}")
-            print(f"  - 錯誤樣本的 prediction 分布: {err_df['prediction'].value_counts().to_dict()}")
+        # if len(err_df) > 0:
+        #     print(f"  - 錯誤樣本的 annotation 分布: {err_df['annotation'].value_counts().to_dict()}")
+        #     print(f"  - 錯誤樣本的 prediction 分布: {err_df['prediction'].value_counts().to_dict()}")
         
         err_df = err_df.sort_values(by=['score'])
         self.errors = err_df

@@ -35,7 +35,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
         for i, record in records.iterrows():
             classifier_df_data.append({
                 'id': record['id'],
-                'text': f"---Input: {record['text']}---Model Output{record['prediction']}"
+                'text': f"---Input: {record['text']}---Model Output:{record['prediction']}"
             })
         
         classifier_df = pd.DataFrame(classifier_df_data)
@@ -75,7 +75,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
                     score = 1.0  # Assign a default low score if conversion fails
                 self.dataset.records.loc[self.dataset.records['id'] == original_id, 'score'] = score
                 self.dataset.records.loc[self.dataset.records['id'] == original_id, 'feedback'] = "" 
-            print("self.dataset.records : ",self.dataset.records)
+            # print("self.dataset.records : ",self.dataset.records)
 
         self.eval.mean_score = self.dataset.records[self.dataset.records['batch_id'] <= self.batch_id]['score'].mean()
 
@@ -88,7 +88,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
         few_shot_df = few_shot_df.head(max_examples)
         examples = [""]
         for _, row in few_shot_df.iterrows():
-            examples.append(f"---\nInput: {row['text']}\n---\n{row['answer']}\n")
+            examples.append(f"---\nInput: {row['text']}\n---\nModel Output:{row['answer']}\n")
         examples.append(f"---\nInput: ")
         return "".join(examples)
 
@@ -115,15 +115,14 @@ class GenOptimizationPipeline(OptimizationPipeline):
             "prompt": self.cur_prompt,
             "labels": labels,
             "error_analysis": error_analysis,
-            "current_prompt_for_constraint_analysis": self.cur_prompt, # 新增：用於約束分析的當前提示詞
             "output_format_definition": self.output_format_definition # 新增：將黃金模板作為參考傳遞
         }
-        #print("prompt_input : ",prompt_input)
+        # print("prompt_input : ",prompt_input)
         
         # 產生新的提示詞，並加入few shot，假如需要NO_THINK則加入NO_THINK
         prompt_suggestion = self.meta_chain.step_prompt_chain.invoke(prompt_input)
         
-        print("prompt_suggestion : ",prompt_suggestion)
+        # print("prompt_suggestion : ",prompt_suggestion)
         
         if 'text' in prompt_suggestion:
             new_prompt = prompt_suggestion['text']
@@ -221,7 +220,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
         llm = self.predictor.chain.llm
         
         from langchain_core.prompts import PromptTemplate
-        template = PromptTemplate.from_template("{prompt}---Input: {user_input}---")
+        template = PromptTemplate.from_template("{prompt}{user_input}\n---\nModel Output:")
         
         from tqdm import tqdm
         updated_predictions = []
@@ -270,7 +269,7 @@ class GenOptimizationPipeline(OptimizationPipeline):
             self.save_state()
             return True
         
-        print("self.dataset.records : ",self.dataset.records)
+        # print("self.dataset.records : ",self.dataset.records)
         
         # --- Start of Custom Injection Logic ---
         # Temporarily modify the analyzer's prompt template to include the golden template
